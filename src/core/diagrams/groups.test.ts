@@ -67,3 +67,14 @@ describe('그룹 생성 → 코드 반영 → 다시 파싱 (명세 FR-14·15)',
     expect(apply(seq, (model) => renameGroup(model, m.groups[0]!.id, 'Server'))).toContain('box Aqua Server');
   });
 });
+
+describe('회귀: 백틱 식별자 클래스 그룹화', () => {
+  it('공백이 든 클래스 이름도 namespace 안에서 같은 클래스로 파싱된다', () => {
+    const source = 'classDiagram\nclass `My Class`\n`My Class` --> B';
+    const grouped = apply(source, (m) => createGroup(m, source, ['My Class', 'B'], 'Core'));
+    expect(grouped).toContain('class `My Class`');
+    const m = parse(grouped);
+    expect(m.kind === 'class' && m.nodes.map((n) => n.id).sort()).toEqual(['B', 'My Class']);
+    expect(m.groups[0]?.members.sort()).toEqual(['B', 'My Class']);
+  });
+});

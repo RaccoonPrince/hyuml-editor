@@ -13,6 +13,9 @@ import { isColorToken } from './sequence/boxes';
 
 const CLASS_NS_RE = /^[A-Za-z_][\w.]*$/;
 const IDENT_RE = /^[A-Za-z_][\w-]*$/;
+/** 파서의 클래스 식별자 규칙과 같아야 한다 (class/parser.ts 의 ID) — 아니면 백틱으로 감싼다 */
+const CLASS_ID_RE = /^[A-Za-z_]\w*(?:-\w+)*$/;
+const classRef = (id: string) => (CLASS_ID_RE.test(id) ? id : `\`${id}\``);
 
 function appendBlock(source: string, block: string): TextEdit {
   const prefix = source.length === 0 || source.endsWith('\n') ? '' : '\n';
@@ -37,7 +40,7 @@ export function createGroup(model: DiagramModel, source: string, memberIds: read
       if (!CLASS_NS_RE.test(name)) return { ok: false, reason: '클래스 다이어그램의 그룹(namespace) 이름은 영문·숫자·_·. 만 쓸 수 있습니다.' };
       if (model.groups.some((group) => group.id === name)) return { ok: false, reason: `'${name}' 그룹이 이미 있습니다.` };
       const ordered = model.nodes.filter((node) => members.includes(node.id)).map((node) => node.id);
-      return { ok: true, edits: [appendBlock(source, `namespace ${name} {\n${ordered.map((id) => `  class ${id}`).join('\n')}\n}\n`)] };
+      return { ok: true, edits: [appendBlock(source, `namespace ${name} {\n${ordered.map((id) => `  class ${classRef(id)}`).join('\n')}\n}\n`)] };
     }
     case 'usecase': {
       const id = IDENT_RE.test(name) ? name : `Boundary${model.groups.length + 1}`;

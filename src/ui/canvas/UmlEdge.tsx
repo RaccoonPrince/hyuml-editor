@@ -106,17 +106,11 @@ function UmlEdgeImpl({ id, data }: EdgeProps<UmlEdgeType>) {
   const showCenter = Boolean(edge.label) || adding;
   const isSelfLoop = edge.source === edge.target;
 
-  /* ── 꺾임점 드래그 (명세 FR-12) ── */
-  const startDrag = (event: ReactPointerEvent<SVGElement>, list: Point[], index: number) => {
-    event.stopPropagation();
-    event.preventDefault();
-    (event.currentTarget as Element).setPointerCapture(event.pointerId);
-    beginInteraction();
-    dragging.current = { index, list };
-    setIsDragging(true);
-    setEdgeWaypoints(id, list);
-  };
-  const moveDrag = (event: ReactPointerEvent<SVGElement>) => {
+  /* ── 꺾임점 드래그 (명세 FR-12) ──
+   * 이동·종료는 window 에서 받는다. 선분 중앙 손잡이로 새 꺾임점을 만들면 그 손잡이(circle)가
+   * 곧바로 사라져 포인터 캡처가 풀리므로, 요소 이벤트에 의존하면 드래그가 중간에 끊기고
+   * endInteraction 이 호출되지 않아 Undo 스냅샷·isDragging 이 남는다. */
+  const moveDrag = (event: PointerEvent) => {
     const state = dragging.current;
     if (!state) return;
     const p = screenToFlowPosition({ x: event.clientX, y: event.clientY });
@@ -124,13 +118,26 @@ function UmlEdgeImpl({ id, data }: EdgeProps<UmlEdgeType>) {
     dragging.current = { ...state, list };
     setEdgeWaypoints(id, list);
   };
-  const endDrag = (event: ReactPointerEvent<SVGElement>) => {
+  const endDrag = () => {
+    window.removeEventListener('pointermove', moveDrag);
+    window.removeEventListener('pointerup', endDrag);
+    window.removeEventListener('pointercancel', endDrag);
     if (!dragging.current) return;
-    (event.currentTarget as Element).releasePointerCapture(event.pointerId);
     dragging.current = null;
     setIsDragging(false);
     setHovered(false);
     endInteraction();
+  };
+  const startDrag = (event: ReactPointerEvent<SVGElement>, list: Point[], index: number) => {
+    event.stopPropagation();
+    event.preventDefault();
+    beginInteraction();
+    dragging.current = { index, list };
+    setIsDragging(true);
+    setEdgeWaypoints(id, list);
+    window.addEventListener('pointermove', moveDrag);
+    window.addEventListener('pointerup', endDrag);
+    window.addEventListener('pointercancel', endDrag);
   };
   /** 선분 중앙 손잡이를 끌면 그 위치에 새 꺾임점을 만든다 */
   const startNewBend = (event: ReactPointerEvent<SVGElement>, at: Point) => {
@@ -184,8 +191,6 @@ function UmlEdgeImpl({ id, data }: EdgeProps<UmlEdgeType>) {
                 strokeWidth={1.5}
                 style={{ cursor: 'move', pointerEvents: 'all' }}
                 onPointerDown={(event) => startNewBend(event, mid)}
-                onPointerMove={moveDrag}
-                onPointerUp={endDrag}
               >
                 <title>드래그해서 연결선 꺾기</title>
               </circle>
@@ -200,8 +205,6 @@ function UmlEdgeImpl({ id, data }: EdgeProps<UmlEdgeType>) {
                 fill={stroke}
                 style={{ cursor: 'move', pointerEvents: 'all' }}
                 onPointerDown={(event) => startDrag(event, [...waypoints], index)}
-                onPointerMove={moveDrag}
-                onPointerUp={endDrag}
                 onDoubleClick={(event) => {
                   event.stopPropagation();
                   beginInteraction();
