@@ -1,7 +1,7 @@
 import type { StateCreator } from 'zustand';
 import type { EditResult } from '../core/diagrams/editResult';
 import type { DiagramModel } from '../core/diagrams/registry';
-import type { DiagramDocument, EdgeStyle, LayoutEngineName, NodeLayout, TextStyle } from '../core/document/schema';
+import type { DiagramDocument, EdgeStyle, LayoutEngineName, LayoutState, NodeLayout, TextStyle } from '../core/document/schema';
 import type { Diagnostic, EdgeId, NodeId, Point } from '../core/types';
 
 /** 저장·Undo 대상. 이 슬라이스의 doc 만 파일로 저장된다. */
@@ -54,6 +54,9 @@ export interface DocumentSlice {
   redo: () => void;
 }
 
+/** 종류별로 따로 보관하는 layout 조각 — 좌표뿐 아니라 스타일·꺾임점도 (같은 키가 다른 종류에 남지 않도록) */
+export type KindStash = Pick<LayoutState, 'nodes' | 'textStyles' | 'edgeStyles' | 'edgeWaypoints'>;
+
 /** 파생 상태 — 저장하지 않으며 언제든 doc 로부터 다시 계산 가능 */
 export interface DerivedSlice {
   model: DiagramModel | null;
@@ -62,7 +65,7 @@ export interface DerivedSlice {
   diagnostics: Diagnostic[];
   trash: Record<NodeId, NodeLayout>;
   /** 다이어그램 종류를 바꿨다 돌아올 때 복원할 종류별 좌표 (같은 이름이 다른 종류의 좌표를 물려받지 않게) */
-  kindStash: Partial<Record<DiagramModel['kind'], Record<NodeId, NodeLayout>>>;
+  kindStash: Partial<Record<DiagramModel['kind'], KindStash>>;
   /** doc.layout.nodes 가 어느 종류의 좌표인지. null = 방금 통째로 들어온 문서(Undo·열기)라 그대로 믿는다 */
   layoutKind: DiagramModel['kind'] | null;
   parseSeq: number;

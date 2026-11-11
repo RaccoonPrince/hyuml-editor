@@ -232,3 +232,17 @@ describe('contrastTextOn', () => {
     expect(contrastTextOn('rgb(1,2,3)')).toBeUndefined();
   });
 });
+
+describe('빈 메시지 편집', () => {
+  it('텍스트를 비우면 콜론까지 지운다 (A->>B: 로 남지 않는다)', () => {
+    const source = 'sequenceDiagram\nA->>B: hi\nB-->>A:   ok';
+    const m = parseSequenceDiagram(source).model!;
+    const first = editStatementText(m, messages(m)[0]!.key, '', source);
+    expect(first.ok && applyTextEdits(source, first.edits)).toBe('sequenceDiagram\nA->>B\nB-->>A:   ok');
+    const second = editStatementText(m, messages(m)[1]!.key, '  ', source);
+    expect(second.ok && applyTextEdits(source, second.edits)).toBe('sequenceDiagram\nA->>B: hi\nB-->>A');
+    // 비운 결과도 다시 파싱된다
+    const reparsed = parseSequenceDiagram('sequenceDiagram\nA->>B\nB-->>A');
+    expect(reparsed.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
+  });
+});
