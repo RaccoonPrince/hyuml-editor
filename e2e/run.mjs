@@ -15,25 +15,31 @@ mkdirSync(tmp, { recursive: true });
 
 const SCENARIOS = {
   class: {
-    base: 'classDiagram\n  class Alpha\n  class Beta\n  class Gamma\n  Alpha --> Beta\n  Beta --> Gamma\n',
+    base: 'classDiagram\n  class Alpha\n  class Beta\n  class Gamma\n  class Solo\n  Alpha --> Beta\n  Beta --> Gamma\n',
+    isolated: 'Solo',
     add: (s) => `${s}  class Delta\n  Gamma --> Delta\n`,
     renameFrom: 'Delta', renameTo: 'Epsilon',
     bad: ['class Foo', 'classDiagram\n  class Alpha {\n    +x: int\n'],
-    group: /namespace\s+\S+/, members: ['Alpha', 'Beta'], dragNode: 'Beta',
+    group: /namespace\s+\S+/, members: ['Beta', 'Gamma'], dragNode: 'Beta',
+    canvas: { aria: '클래스 이름 Alpha', to: 'Alpine', oldId: 'Alpha', newId: 'Alpine', expected: (s) => s.replace(/\bAlpha\b/g, 'Alpine') },
   },
   usecase: {
-    base: 'usecase-beta\n  actor User\n  Login\n  Pay\n  User --> Login\n  Login --> Pay\n',
+    base: 'usecase-beta\n  actor User\n  actor Guest\n  Login\n  Pay\n  User --> Login\n  Login --> Pay\n',
+    isolated: 'Guest',
     add: (s) => `${s}  Refund\n  Pay --> Refund\n`,
     renameFrom: 'Refund', renameTo: 'Cancel',
     bad: ['hello world', 'usecase-beta\n  systemBoundary Shop\n    Login\n'],
-    group: /systemBoundary\s+\S+/, members: ['User', 'Login'], dragNode: 'Login',
+    group: /systemBoundary\s+\S+/, members: ['Login', 'Pay'], dragNode: 'Login',
+    canvas: { aria: '액터 이름 User', to: 'Member', oldId: 'User', newId: 'Member', expected: (s) => s.replace(/\bUser\b/g, 'Member') },
   },
   sequence: {
-    base: 'sequenceDiagram\n  participant A as Alice\n  participant B as Bob\n  participant C as Carol\n  A->>B: hi\n  B->>C: yo\n',
+    base: 'sequenceDiagram\n  participant A as Alice\n  participant B as Bob\n  participant C as Carol\n  participant Idle\n  A->>B: hi\n  B->>C: yo\n',
+    isolated: 'Idle',
     add: (s) => `${s}  participant D\n  C->>D: ping\n`,
     renameFrom: 'D', renameTo: 'E',
     bad: ['hello world', 'sequenceDiagram\n  loop retry\n    A->>B: x\n'],
     group: /box\s/, members: ['A', 'B'], dragNode: 'B',
+    canvas: { aria: '참여자 이름 Alice', to: 'Alicia', oldId: 'A', newId: 'A', expected: (s) => s.replace('as Alice', 'as Alicia') },
   },
 };
 
@@ -111,10 +117,28 @@ async function runKind(browser, kind, sc) {
     assert(st.kind === kind, `kind=${st.kind}`);
     assert(st.errors === 0, '오류 진단 존재');
     const count = await page.locator('.react-flow__node').count();
-    assert(count >= 3, `노드 ${count}개`);
+    assert(count >= 4, `노드 ${count}개`);
+    assert((await page.locator(`.react-flow__node[data-id="${sc.isolated}"]`).count()) === 1, `고립 도형 ${sc.isolated} 이(가) 화면에 없음`);
     assert(!/"x"|layout/.test(st.source), '코드 창에 좌표/레이아웃 노출');
     await shot(page, kind, '1-render');
     return `노드 ${count}개`;
+  });
+
+  await check(kind, '캔버스에서 이름 수정 → 코드의 해당 부분만 변경', async () => {
+    const before = await state(page);
+    const c = sc.canvas;
+    // 유스케이스·시퀀스 라벨은 평소 버튼이고, 클릭하면 입력창으로 바뀐다
+    const toggle = page.getByLabel(`${c.aria} 편집`, { exact: true });
+    if ((await toggle.count()) > 0) await toggle.click();
+    const input = page.getByLabel(c.aria, { exact: true });
+    await input.fill(c.to);
+    await input.press('Enter');
+    await settle(page);
+    const after = await state(page);
+    assert(after.source === c.expected(before.source), `소스 불일치:\n${after.source}`);
+    const a = before.nodes[c.oldId], b = after.nodes[c.newId];
+    assert(b && a.x === b.x && (kind === 'sequence' || a.y === b.y), '이름 수정 후 좌표가 달라짐');
+    await shot(page, kind, '1b-canvas-rename');
   });
 
   await check(kind, '도형 드래그 → 좌표 유지', async () => {
