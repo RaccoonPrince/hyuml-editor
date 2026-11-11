@@ -38,7 +38,7 @@ function SeqParticipantNodeImpl({ id, data, selected }: NodeProps<SeqParticipant
         onResizeEnd={endInteraction}
         lineStyle={{ borderColor: 'transparent' }}
       />
-      <ParticipantShape type={participant.type} fill={layout.fill} theme={theme}>
+      <ParticipantShape type={participant.type} fill={layout.fill} theme={theme} hovered={hovered}>
         <SeqLabel
           ariaLabel={`참여자 이름 ${participant.label}`}
           value={participant.label}

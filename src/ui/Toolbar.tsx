@@ -93,7 +93,7 @@ export function Toolbar() {
       )}
       {groupName === null ? (
         <button type="button" style={secondary} disabled={s.selectedShapes === 0}
-          title={s.selectedShapes === 0 ? '캔버스에서 드래그로 도형을 여러 개 선택한 뒤 누르세요' : `선택한 도형 ${s.selectedShapes}개를 그룹으로 묶기`}
+          title={s.selectedShapes === 0 ? '캔버스에서 Ctrl + 드래그로 도형을 여러 개 선택한 뒤 누르세요' : `선택한 도형 ${s.selectedShapes}개를 그룹으로 묶기`}
           onClick={() => setGroupName(s.kind === 'class' ? 'Group' : '그룹')}>
           그룹{s.selectedShapes > 0 ? ` (${s.selectedShapes})` : ''}
         </button>

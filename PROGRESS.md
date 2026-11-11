@@ -368,6 +368,32 @@ sequenceDiagram
 
 ## 9. 변경 이력 (최신이 위)
 
+### 2026-11-11 — README 전면 개편 + GitHub 저장소 생성
+- `README.md` 를 팀원·외부 독자용 문서로 재작성: 빠른 시작, 사용 방법(캔버스 조작표·툴바 설명), 지원 문법 예시, 아키텍처, 기능별 구현 방법, 디자인 패턴 표, 핵심 알고리즘 표, 폴더 구조, 테스트, 기술 스택. 툴바 버튼 이름은 `Toolbar.tsx` 실제 문구와 대조함.
+- GitHub 원격 저장소 생성 및 push (계정 `RaccoonPrince`, 비공개). 원격 이름 `origin`, 기본 브랜치 `master`.
+- 코드 변경 없음.
+
+### 2026-11-11 — 마우스 오버 시 테두리·간선 굵게 강조
+- 목적: 도형이나 연결선 위에 마우스를 올리면 어느 것을 가리키는지 잘 보이게.
+- 공통 값: `core/theme.ts` 에 `TYPO.hoverExtra = 1.5`(px)와 `hoverRing(color)` 추가. **화면 표시용일 뿐 `layout`(저장·Undo)에는 아무것도 기록하지 않는다.**
+- 도형: 테두리(`border`)를 직접 굵게 하면 `box-sizing: border-box` 때문에 내용이 1~2px 밀리므로, 테두리 바깥에 `box-shadow` 링을 그려 굵어 보이게 했다. 크기 측정(`measure.ts`)과 무관.
+  - `UmlClassNode.tsx`(클래스), `UsecaseNode.tsx`(유스케이스 타원/사각형 = 링, 액터 막대인형 = SVG 선 2→3.5px)
+  - `ParticipantShape.tsx` 에 `hovered` prop 추가, `SeqParticipantNode.tsx`(시퀀스 머리)만 넘긴다. 꼬리(`SeqBody` 하단)는 강조하지 않음.
+- 간선: `UmlEdge.tsx` 는 이미 있던 `hovered`(꺾임 손잡이 표시용) 상태를 그대로 써서 보이는 선의 굵기만 `strokeWidth + hoverExtra` 로 그린다(드래그 중에도 유지).
+- 시퀀스 메시지: `SeqBody` 는 본문 전체가 `pointerEvents: none` 이라 마우스를 감지할 수 없었다. 메시지마다 투명한 12px 감지용 경로(`nodrag hy-no-export`, `pointerEvents: 'stroke'`)를 추가하고 `hoveredMessage` 로컬 state 로 굵기를 바꾼다. 화살촉도 같이 굵어진다. `nopan` 은 넣지 않았으므로 메시지 위에서 드래그해도 화면 이동은 된다.
+- 내보내기 영향: 이미지 내보내기 버튼을 누를 때 마우스는 툴바 위에 있으므로 강조된 상태로 찍히지 않는다(감지 경로는 `hy-no-export` 로 제외).
+- 강조하지 않은 것: 그룹 상자(본문이 클릭 통과 구조), 노트·프래그먼트, 활성화 상자.
+- 검증: tsc·oxlint 통과, 테스트 113개 통과. 브라우저 확인은 미실시(불명).
+
+### 2026-11-11 — Ctrl + 드래그로 범위 선택 (그룹 기능 사용 불가 문제)
+- 증상: 캔버스를 드래그하면 화면만 이동하고 범위 선택이 안 돼서, 여러 도형을 골라 그룹으로 묶을 수 없었다.
+- 원인: `FlowCanvas.tsx` 에 `selectionOnDrag` 가 있었지만 React Flow 12 는 `panOnDrag` 가 기본값(true)이면 이 옵션을 무시한다(`_selectionOnDrag = selectionOnDrag && panOnDrag !== true`). 범위 선택은 기본 키 Shift 를 누를 때만 가능했고, 화면 어디에도 안내가 없었다.
+- 수정: 효과 없는 `selectionOnDrag` 를 제거하고 `selectionKeyCode={['Control', 'Meta', 'Shift']}` 를 지정했다. 키를 누르는 동안 React Flow 가 `panOnDrag` 를 끄므로 화면이 움직이지 않고 선택 상자가 그려진다. 그냥 드래그는 지금처럼 화면 이동이다. Meta 는 맥 Cmd 용(맥에서 Ctrl+클릭은 우클릭이라서), Shift 는 기존 동작 유지용이다.
+- 안내 문구 수정: `Toolbar.tsx` 그룹 버튼 툴팁, `groupEdits.ts` 의 "도형을 먼저 선택하세요" 메시지에 "Ctrl + 드래그"를 명시.
+- 선택 결과는 기존과 같은 경로로 store 에 들어간다: React Flow `select` 변경 → `FlowCanvas.onNodesChange` → `setSelection` → 툴바 "그룹 만들기" 가 `selection` 을 사용.
+- 참고: Windows 에서는 Ctrl 이 React Flow 의 다중 선택 키(`multiSelectionKeyCode` 기본값)이기도 해서, Ctrl+클릭으로 도형을 하나씩 추가 선택하는 것도 된다. 선택 상자는 기본 `SelectionMode.Full`, 즉 도형이 상자 안에 **완전히** 들어와야 선택된다.
+- 검증: tsc·oxlint 통과, 테스트 113개 통과. 브라우저에서 직접 드래그해 보지는 않았다(불명) — React Flow 소스(`FlowRendererComponent`)의 동작을 근거로 수정.
+
 ### 2026-10-14 — PROGRESS.md 보강(실행환경·타입·문법예시 추가)
 - 0절 실행 환경·의존성, 2절 디렉토리 트리·핵심 타입 요약·스타일링, 5-1절 문법 예시 추가. 코드 변경 없음.
 
@@ -384,7 +410,7 @@ sequenceDiagram
    - 테스트: `src/core/diagrams/groups.test.ts` 에 "회귀: 백틱 식별자 클래스 그룹화" 추가.
 3. **문서 작업**: `README.md` 를 실제 프로젝트 설명으로 교체, 이 `PROGRESS.md` 를 설계 문서 형태로 재작성(1~8절).
 
-> 위 코드 변경은 아직 **커밋되지 않았다**(작업 트리에만 있음). 커밋 여부는 사용자가 결정한다.
+> 위 변경은 커밋 `22264f2` 로 반영됐다.
 
 ### 2026-10-14 — git 초기화
 - `git init`, 최초 커밋 `5ffb136` "최초 커밋: 2026-09-27 기준 작업 상태". 이전 이력 없음.

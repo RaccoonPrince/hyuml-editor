@@ -5,7 +5,7 @@ import type { NodeProps } from '@xyflow/react';
 import { UC, usecaseFontPt } from '../../core/diagrams/usecase/measure';
 import { styleKeys } from '../../core/document/keys';
 import { ptToPx } from '../../core/layout/measure';
-import { contrastTextOn, TYPO } from '../../core/theme';
+import { contrastTextOn, hoverRing, TYPO } from '../../core/theme';
 import { useDiagramStore } from '../../store/useDiagramStore';
 import type { UsecaseFlowNode } from '../../view/flowTypes';
 import { FormatToolbar } from './FormatToolbar';
@@ -27,6 +27,7 @@ function UsecaseNodeImpl({ id, data, selected }: NodeProps<UsecaseFlowNode>) {
   const fontPt = usecaseFontPt(id, { fontSizePt: canvas.fontSizePt, textStyles });
   const fontPx = ptToPx(fontPt);
   const isActor = node.type === 'actor';
+  const figureStroke = hovered ? 2 + TYPO.hoverExtra : 2;
   const color = textStyles[titleKey]?.color ?? contrastTextOn(layout.fill) ?? (isActor ? theme.memberText : theme.participantText);
 
   const label = (
@@ -63,11 +64,11 @@ function UsecaseNodeImpl({ id, data, selected }: NodeProps<UsecaseFlowNode>) {
       {isActor ? (
         <div style={{ width: '100%', height: '100%', display: 'flex', flexDirection: 'column', alignItems: 'center', background: layout.fill ?? 'transparent', borderRadius: 6 }}>
           <svg width={34} height={UC.actorFigureH} viewBox="0 0 34 46" aria-hidden="true" style={{ flexShrink: 0 }}>
-            <circle cx="17" cy="8" r="7" fill="none" stroke={theme.nodeBorder} strokeWidth="2" />
-            <line x1="17" y1="15" x2="17" y2="31" stroke={theme.nodeBorder} strokeWidth="2" />
-            <line x1="4" y1="21" x2="30" y2="21" stroke={theme.nodeBorder} strokeWidth="2" />
-            <line x1="17" y1="31" x2="7" y2="45" stroke={theme.nodeBorder} strokeWidth="2" />
-            <line x1="17" y1="31" x2="27" y2="45" stroke={theme.nodeBorder} strokeWidth="2" />
+            <circle cx="17" cy="8" r="7" fill="none" stroke={theme.nodeBorder} strokeWidth={figureStroke} />
+            <line x1="17" y1="15" x2="17" y2="31" stroke={theme.nodeBorder} strokeWidth={figureStroke} />
+            <line x1="4" y1="21" x2="30" y2="21" stroke={theme.nodeBorder} strokeWidth={figureStroke} />
+            <line x1="17" y1="31" x2="7" y2="45" stroke={theme.nodeBorder} strokeWidth={figureStroke} />
+            <line x1="17" y1="31" x2="27" y2="45" stroke={theme.nodeBorder} strokeWidth={figureStroke} />
           </svg>
           <div style={{ flex: 1, display: 'flex', alignItems: 'center' }}>{label}</div>
         </div>
@@ -77,6 +78,7 @@ function UsecaseNodeImpl({ id, data, selected }: NodeProps<UsecaseFlowNode>) {
           padding: node.shape === 'rect' ? `${UC.rectPadY}px ${UC.rectPadX}px` : `${UC.ellipsePadY}px ${UC.ellipsePadX}px`,
           border: `${TYPO.border}px solid ${theme.nodeBorder}`,
           borderRadius: node.shape === 'rect' ? 6 : '50%',
+          boxShadow: hovered ? hoverRing(theme.nodeBorder) : undefined,
           background: layout.fill ?? theme.participantBg,
         }}>
           {label}

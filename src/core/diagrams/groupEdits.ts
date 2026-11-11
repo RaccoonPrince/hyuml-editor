@@ -29,7 +29,7 @@ function groupsOf(model: DiagramModel) {
 export function createGroup(model: DiagramModel, source: string, memberIds: readonly NodeId[], rawName: string): EditResult {
   const name = rawName.trim();
   const members = [...new Set(memberIds)];
-  if (members.length === 0) return { ok: false, reason: '그룹으로 묶을 도형을 먼저 선택하세요. (캔버스에서 드래그로 여러 개 선택)' };
+  if (members.length === 0) return { ok: false, reason: '그룹으로 묶을 도형을 먼저 선택하세요. (캔버스에서 Ctrl + 드래그로 여러 개 선택)' };
   if (!name) return { ok: false, reason: '그룹 이름을 입력하세요.' };
   if (/[\n{}"]/.test(name)) return { ok: false, reason: '그룹 이름에 줄바꿈, 중괄호, 따옴표는 쓸 수 없습니다.' };
   const taken = members.filter((id) => groupsOf(model).some((group) => group.members.includes(id)));

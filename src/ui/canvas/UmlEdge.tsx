@@ -150,6 +150,8 @@ function UmlEdgeImpl({ id, data }: EdgeProps<UmlEdgeType>) {
     return { x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 };
   }).filter((mid) => !waypoints.some((point) => Math.hypot(point.x - mid.x, point.y - mid.y) < 12));
   const showHandles = (hovered || isDragging) && !isSelfLoop;
+  // 마우스를 올리면 선을 굵게 (저장되는 스타일은 그대로)
+  const shownWidth = hovered || isDragging ? strokeWidth + TYPO.hoverExtra : strokeWidth;
 
   return (
     <>
@@ -162,12 +164,12 @@ function UmlEdgeImpl({ id, data }: EdgeProps<UmlEdgeType>) {
           d={path}
           fill="none"
           stroke={stroke}
-          strokeWidth={strokeWidth}
+          strokeWidth={shownWidth}
           strokeDasharray={edge.line === 'dotted' ? '6 4' : undefined}
           markerStart={startId ? `url(#${startId})` : undefined}
           markerEnd={endId ? `url(#${endId})` : undefined}
           className="react-flow__edge-path"
-          style={{ stroke, strokeWidth }}
+          style={{ stroke, strokeWidth: shownWidth }}
         />
         {/* 넓은 투명 히트 영역: 호버 시 꺾임 손잡이 표시, 더블클릭으로 라벨 추가 */}
         <path

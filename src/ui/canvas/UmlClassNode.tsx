@@ -5,7 +5,7 @@ import type { NodeProps } from '@xyflow/react';
 import type { ClassMember } from '../../core/diagrams/class/model';
 import { styleKeys } from '../../core/document/keys';
 import { lineHeightPx, memberFontPt, memberFontPx, titleFontPt, titleFontPx } from '../../core/layout/measure';
-import { contrastTextOn, TYPO } from '../../core/theme';
+import { contrastTextOn, hoverRing, TYPO } from '../../core/theme';
 import { useDiagramStore } from '../../store/useDiagramStore';
 import type { UmlNode } from '../../view/flowTypes';
 import { EditableText } from './EditableText';
@@ -79,6 +79,7 @@ function UmlClassNodeImpl({ id, data, selected }: NodeProps<UmlNode>) {
         width: '100%', height: '100%', boxSizing: 'border-box', position: 'relative',
         background: layout.fill ?? theme.nodeBg,
         border: `${TYPO.border}px solid ${theme.nodeBorder}`, borderRadius: 5,
+        boxShadow: hovered ? hoverRing(theme.nodeBorder) : undefined,
         fontFamily: TYPO.fontFamily, display: 'flex', flexDirection: 'column',
       }}
     >

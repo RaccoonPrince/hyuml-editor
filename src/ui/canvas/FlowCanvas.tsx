@@ -17,6 +17,7 @@ import { SeqParticipantNode } from './sequence/SeqParticipantNode';
 
 const nodeTypes = { umlClass: UmlClassNode, usecase: UsecaseNode, umlGroup: GroupNode, seqParticipant: SeqParticipantNode, seqBody: SeqBody };
 const edgeTypes = { uml: UmlEdge };
+const SELECTION_KEYS = ['Control', 'Meta', 'Shift'];
 
 const isTypingTarget = (target: EventTarget | null) =>
   target instanceof HTMLElement
@@ -135,7 +136,8 @@ export function FlowCanvas() {
         nodesConnectable={false}
         edgesFocusable={false}
         deleteKeyCode={null}
-        selectionOnDrag
+        // 그냥 드래그 = 화면 이동, Ctrl(맥 Cmd)·Shift + 드래그 = 범위 선택 (누르는 동안 화면 이동은 꺼진다)
+        selectionKeyCode={SELECTION_KEYS}
         minZoom={0.2}
         maxZoom={4}
       >

@@ -22,7 +22,12 @@ export const TYPO = {
   endpointDeltaPt: -1,
   edgeLabelPadX: 5,
   edgeLabelPadY: 1,
+  /** 마우스를 올렸을 때 테두리·간선을 이만큼(px) 더 굵게 — 레이아웃 크기는 바꾸지 않는다 */
+  hoverExtra: 1.5,
 } as const;
+
+/** 마우스 오버 강조: 테두리 바깥에 링을 그려 굵어 보이게 한다 (border 를 바꾸면 내용이 밀린다) */
+export const hoverRing = (color: string) => `0 0 0 ${TYPO.hoverExtra}px ${color}`;
 
 /** 시퀀스 다이어그램 전용 토큰 — sequence/layout.ts 와 렌더러가 함께 쓴다 */
 export const SEQ = {

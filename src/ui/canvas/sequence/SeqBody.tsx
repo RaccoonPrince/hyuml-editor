@@ -1,4 +1,4 @@
-import { memo } from 'react';
+import { memo, useState } from 'react';
 import type { CSSProperties, ReactNode } from 'react';
 import type { NodeProps } from '@xyflow/react';
 import type { SeqMessageLayout } from '../../../core/diagrams/sequence/layout';
@@ -39,6 +39,7 @@ function ArrowTip({ tip, dir, head, stroke, width }: { tip: Point; dir: number; 
 
 function SeqBodyImpl({ data, width, height }: NodeProps<SeqBodyNode>) {
   const { seq, participants, nodes, canvas, textStyles, edgeStyles, theme, origin } = data;
+  const [hoveredMessage, setHoveredMessage] = useState<string | null>(null);
   const editSequenceText = useDiagramStore((s) => s.editSequenceText);
   const updateTextStyle = useDiagramStore((s) => s.updateTextStyle);
   const renameGroup = useDiagramStore((s) => s.renameGroup);
@@ -262,12 +263,23 @@ function SeqBodyImpl({ data, width, height }: NodeProps<SeqBodyNode>) {
         {seq.messages.map((message) => {
           const edge = edgeStyles[message.key];
           const stroke = edge?.stroke ?? theme.edgeStroke;
-          const strokeWidth = edge?.strokeWidth ?? 1.5;
+          const strokeWidth = (edge?.strokeWidth ?? 1.5) + (hoveredMessage === message.key ? TYPO.hoverExtra : 0);
           const endY = message.self ? message.y + SEQ.selfLoopH : message.y;
           const dir = message.self ? -1 : Math.sign(message.x2 - message.x1) || 1;
           return (
             <g key={message.key}>
               <path d={messagePath(message)} fill="none" stroke={stroke} strokeWidth={strokeWidth} strokeDasharray={message.message.line === 'dotted' ? '6 4' : undefined} />
+              {/* 본문은 클릭이 통과(pointerEvents none)하므로 메시지 선에만 투명한 넓은 감지 영역을 둔다 */}
+              <path
+                className="nodrag hy-no-export"
+                d={messagePath(message)}
+                fill="none"
+                stroke="transparent"
+                strokeWidth={12}
+                style={{ pointerEvents: 'stroke' }}
+                onMouseEnter={() => setHoveredMessage(message.key)}
+                onMouseLeave={() => setHoveredMessage((current) => (current === message.key ? null : current))}
+              />
               <ArrowTip tip={{ x: ox(message.x2), y: oy(endY) }} dir={dir} head={message.message.head} stroke={stroke} width={strokeWidth} />
               {message.message.bidirectional && (
                 <ArrowTip tip={{ x: ox(message.x1), y: oy(message.y) }} dir={message.self ? -1 : -dir} head={message.message.head} stroke={stroke} width={strokeWidth} />
