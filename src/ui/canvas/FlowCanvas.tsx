@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Background, Controls, MiniMap, ReactFlow, useReactFlow } from '@xyflow/react';
 import type { NodeChange } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
@@ -27,9 +27,11 @@ export function FlowCanvas() {
   const { model, layout, selection, isDarkMode } = useDiagramStore(useShallow((s) => ({
     model: s.model, layout: s.doc.layout, selection: s.selection, isDarkMode: s.isDarkMode,
   })));
+  // 드래그 중인 도형 id — 있으면 그 도형에 붙은 간선만 다시 계산하고, 놓으면 전체를 정확히 다시 계산한다
+  const [dragIds, setDragIds] = useState<ReadonlySet<string> | null>(null);
   const { nodes, edges } = useMemo(
-    () => toFlowElements({ model, layout, selection, theme: themeOf(isDarkMode) }),
-    [model, layout, selection, isDarkMode],
+    () => toFlowElements({ model, layout, selection, theme: themeOf(isDarkMode), dragIds }),
+    [model, layout, selection, isDarkMode, dragIds],
   );
   const kind = useDiagramStore((s) => s.model?.kind);
   const arrangedSeq = useDiagramStore((s) => s.arrangedSeq);
@@ -130,8 +132,19 @@ export function FlowCanvas() {
         nodeTypes={nodeTypes}
         edgeTypes={edgeTypes}
         onNodesChange={onNodesChange}
-        onNodeDragStart={() => useDiagramStore.getState().beginInteraction()}
-        onNodeDragStop={() => useDiagramStore.getState().endInteraction()}
+        onNodeDragStart={(_event, _node, dragged) => {
+          useDiagramStore.getState().beginInteraction();
+          const ids = new Set<string>();
+          for (const node of dragged) {
+            if (node.type === 'umlGroup') for (const member of (node as Extract<AppNode, { type: 'umlGroup' }>).data.group.members) ids.add(member);
+            else ids.add(node.id);
+          }
+          setDragIds(ids);
+        }}
+        onNodeDragStop={() => {
+          setDragIds(null);
+          useDiagramStore.getState().endInteraction();
+        }}
         onPaneClick={() => useDiagramStore.getState().setSelection([])}
         nodesConnectable={false}
         edgesFocusable={false}

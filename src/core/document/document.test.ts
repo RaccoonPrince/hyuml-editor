@@ -91,3 +91,66 @@ describe('keys', () => {
     expect(layout.edgeStyles).toEqual({ 'Z|association|B': { stroke: '#f00' } });
   });
 });
+
+describe('reconcile — 고립 노드 리네임 정책 (확정)', () => {
+  // 정책: 사라진 노드 1개 + 새 노드 1개이고 간선 이웃 서명이 같으면 리네임으로 본다.
+  // 간선이 없는 고립 노드끼리는 서명이 모두 비어 있어 "교체"도 리네임으로 간주해 좌표를 승계한다.
+  // (명세: 이름 하나가 사라지고 새 이름 하나가 생기면 이름 변경 — 오인했을 때의 비용은 새 도형이 옛 자리에 놓이는 것뿐이다)
+  const placed = { A: { x: 10, y: 20, w: 160, h: 80 }, B: { x: 300, y: 20, w: 160, h: 80 } };
+
+  it('고립 노드 1개를 지우고 다른 이름 1개를 추가하면 리네임으로 보고 좌표를 승계한다', () => {
+    const result = reconcileLayout({ model: model('class A\nclass Z'), prevModel: model('class A\nclass B'), nodes: placed, trash: {}, measure });
+    expect(result.renamed).toEqual([{ from: 'B', to: 'Z' }]);
+    expect(result.nodes.Z).toMatchObject({ x: 300, y: 20 });
+    expect(result.nodes.A).toMatchObject({ x: 10, y: 20 });
+    expect(result.added).toEqual([]);
+  });
+
+  it('고립 노드가 사라지고 연결된 새 노드가 생기면 리네임이 아니다 (서명이 다름)', () => {
+    const result = reconcileLayout({ model: model('class A\nA --> Z'), prevModel: model('class A\nclass B'), nodes: placed, trash: {}, measure });
+    expect(result.renamed).toEqual([]);
+    expect(result.added).toEqual(['Z']);
+    expect(result.trash.B).toBeDefined();
+  });
+
+  it('동시에 2개가 바뀌면 리네임으로 추정하지 않는다', () => {
+    const result = reconcileLayout({ model: model('class X\nclass Y'), prevModel: model('class A\nclass B'), nodes: placed, trash: {}, measure });
+    expect(result.renamed).toEqual([]);
+    expect(result.added.sort()).toEqual(['X', 'Y']);
+  });
+
+  it('이름을 바꾸면서 관계도 바꾸면 승계하지 않는다', () => {
+    const nodes = { A: placed.A, B: placed.B, C: { x: 600, y: 0, w: 160, h: 80 } };
+    const result = reconcileLayout({ model: model('A --> Z\nclass C'), prevModel: model('A --> B\nclass C'), nodes, trash: {}, measure });
+    expect(result.renamed).toEqual([{ from: 'B', to: 'Z' }]);
+    const changed = reconcileLayout({ model: model('C --> Z\nclass A'), prevModel: model('A --> B\nclass C'), nodes, trash: {}, measure });
+    expect(changed.renamed).toEqual([]);
+  });
+});
+
+describe('저장 · 불러오기 왕복', () => {
+  it('좌표·크기·스타일·꺾임점·캔버스 설정이 그대로 복원되고 코드 구역에는 좌표가 없다', () => {
+    const layout = createEmptyLayout();
+    layout.nodes = { A: { x: 12.5, y: -30, w: 200, h: 90, autoSize: false, fill: '#ffcc00' }, B: { x: 400, y: 80, w: 160, h: 80, autoSize: true } };
+    layout.textStyles = { [styleKeys.title('A')]: { fontSize: 18, color: '#d32f2f' } };
+    layout.edgeStyles = { 'edge:A|association|B': { stroke: '#2e7d32', strokeWidth: 3 } };
+    layout.edgeWaypoints = { 'A|association|B': [{ x: 100, y: 5 }, { x: 140, y: 60 }] };
+    layout.canvas = { fontSizePt: 14, hideEmptyCompartments: false, engine: 'elk' };
+    const source = 'classDiagram\n  class A\n  class B\n  A --> B\n';
+
+    const file = serialize({ source, layout });
+    const [codePart] = file.split('%%% layout');
+    expect(codePart).toContain(source.trim());
+    expect(codePart).not.toMatch(/"x"|12\.5|fontSizePt/);
+
+    const loaded = deserialize(file);
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    expect(loaded.doc.source).toBe(source);
+    expect(loaded.doc.layout).toEqual(layout);
+    expect(loaded.warnings).toEqual([]);
+    // 한 번 더 왕복해도 같다 (안정성)
+    const again = deserialize(serialize(loaded.doc));
+    expect(again.ok && again.doc.layout).toEqual(layout);
+  });
+});

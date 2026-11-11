@@ -11,10 +11,15 @@ import type { LayoutState, NodeLayout } from '../core/document/schema';
 import { getLayoutEngine } from '../core/layout/engine';
 import type { NodeSizes } from '../core/layout/engine';
 import type { Diagnostic, NodeId, Point } from '../core/types';
-import type { DerivedSlice, SliceCreator, Store } from './types';
+import type { DerivedSlice, KindStash, SliceCreator, Store } from './types';
 
 export const COMMIT_DEBOUNCE_MS = 300;
 let commitTimer: ReturnType<typeof setTimeout> | undefined;
+
+/** 종류 전환 시 보관할 layout 조각 */
+export const stashOf = (layout: LayoutState): KindStash => ({
+  nodes: layout.nodes, textStyles: layout.textStyles, edgeStyles: layout.edgeStyles, edgeWaypoints: layout.edgeWaypoints,
+});
 
 /** 모델 종류와 무관한 "도형 id → 최소 크기" 측정기 */
 export const measurerOf = (model: DiagramModel, layout: LayoutState) => {
@@ -52,8 +57,12 @@ export const createDerivedSlice: SliceCreator<DerivedSlice> = (set, get) => {
     const { layoutKind, doc, kindStash } = get();
     if (!layoutKind || layoutKind === next) return;
     set((s) => {
-      s.kindStash[layoutKind] = doc.layout.nodes;
-      s.doc.layout.nodes = kindStash[next] ?? {};
+      s.kindStash[layoutKind] = stashOf(doc.layout);
+      const incoming = kindStash[next];
+      s.doc.layout.nodes = incoming?.nodes ?? {};
+      s.doc.layout.textStyles = incoming?.textStyles ?? {};
+      s.doc.layout.edgeStyles = incoming?.edgeStyles ?? {};
+      s.doc.layout.edgeWaypoints = incoming?.edgeWaypoints ?? {};
       s.trash = {};
     });
   };

@@ -16,3 +16,8 @@ createRoot(container).render(
     <App />
   </StrictMode>,
 );
+
+// 개발 서버 전용: e2e 스크립트(e2e/run.mjs)가 상태를 읽고 검증할 수 있도록 스토어를 노출한다. 프로덕션 빌드에서는 제거된다.
+if (import.meta.env.DEV) {
+  void import('./store/useDiagramStore').then((m) => { (window as unknown as { __hyuml: unknown }).__hyuml = m.useDiagramStore; });
+}

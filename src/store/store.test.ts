@@ -248,3 +248,83 @@ describe('Undo/Redo × 종류 전환', () => {
     expect(store().doc.layout.nodes.A!.x).toBe(seqBefore);
   });
 });
+
+describe('종류 전환 시 스타일 분리', () => {
+  it('class 의 스타일·꺾임점이 sequence 로 넘어가지 않고, 돌아오면 복원된다', async () => {
+    store().updateTextStyle(styleKeys.title('A'), { fontSize: 20 });
+    store().updateEdgeStyle('A|association|B', { stroke: '#d32f2f', strokeWidth: 3 });
+    store().setEdgeWaypoints('A|association|B', [{ x: 5, y: 5 }]);
+    const classNodes = store().doc.layout.nodes;
+
+    store().setSource('sequenceDiagram\nA->>B: hi');
+    await store().commitNow();
+    expect(store().model?.kind).toBe('sequence');
+    expect(store().doc.layout.textStyles).toEqual({});
+    expect(store().doc.layout.edgeStyles).toEqual({});
+    expect(store().doc.layout.edgeWaypoints).toEqual({});
+
+    store().setSource('classDiagram\nA --> B');
+    await store().commitNow();
+    expect(store().model?.kind).toBe('class');
+    expect(store().doc.layout.textStyles[styleKeys.title('A')]?.fontSize).toBe(20);
+    expect(store().doc.layout.edgeStyles['A|association|B']?.strokeWidth).toBe(3);
+    expect(store().doc.layout.edgeWaypoints['A|association|B']).toEqual([{ x: 5, y: 5 }]);
+    expect(store().doc.layout.nodes).toEqual(classNodes);
+  });
+});
+
+describe('핵심 요구 — 코드 편집과 좌표 (명세 FR-05·06)', () => {
+  it('코드에 줄을 추가해도 기존 도형 좌표는 0px 도 변하지 않는다', async () => {
+    store().moveNodes([{ id: 'A', x: 333.5, y: 41 }, { id: 'B', x: -80, y: 905 }]);
+    const before = JSON.stringify([store().doc.layout.nodes.A, store().doc.layout.nodes.B]);
+    store().setSource('classDiagram\nA --> B\nB --> C\nC --> D');
+    await store().commitNow();
+    expect(classIds()).toEqual(['A', 'B', 'C', 'D']);
+    expect(JSON.stringify([store().doc.layout.nodes.A, store().doc.layout.nodes.B])).toBe(before);
+    expect(store().doc.layout.nodes.C).toBeDefined();
+  });
+
+  it('코드 창에서 이름을 바꾸면 좌표와 스타일이 승계된다', async () => {
+    store().moveNodes([{ id: 'B', x: 700, y: 300 }]);
+    store().updateTextStyle(styleKeys.title('B'), { fontSize: 16 });
+    store().setSource('classDiagram\nA --> Bee');
+    await store().commitNow();
+    expect(store().doc.layout.nodes.Bee).toMatchObject({ x: 700, y: 300 });
+    expect(store().doc.layout.nodes.B).toBeUndefined();
+    expect(store().doc.layout.textStyles[styleKeys.title('Bee')]?.fontSize).toBe(16);
+  });
+
+  it('문법 오류 후에도 모델·좌표가 그대로이고, 오류가 고쳐지면 이어서 동기화된다', async () => {
+    store().moveNodes([{ id: 'A', x: 50, y: 60 }]);
+    const nodesBefore = JSON.stringify(store().doc.layout.nodes);
+    for (const bad of ['classDiagram\nA --> B\nclass C {', 'not a diagram']) {
+      store().setSource(bad);
+      await store().commitNow();
+      expect(classIds()).toEqual(['A', 'B']);
+      expect(JSON.stringify(store().doc.layout.nodes)).toBe(nodesBefore);
+      expect(store().diagnostics.some((d) => d.severity === 'error')).toBe(true);
+    }
+    store().setSource('classDiagram\nA --> B\nclass C');
+    await store().commitNow();
+    expect(classIds()).toEqual(['A', 'B', 'C']);
+    expect(store().doc.layout.nodes.A).toMatchObject({ x: 50, y: 60 });
+    expect(store().diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
+  });
+
+  it('저장 직렬화 → 불러오기 후에도 같은 문서가 된다', async () => {
+    const { serialize, deserialize } = await import('../core/document/serializer');
+    store().moveNodes([{ id: 'A', x: 11, y: 22 }]);
+    store().updateTextStyle(styleKeys.title('A'), { fontSize: 14, color: '#d32f2f' });
+    const saved = store().doc;
+    const loaded = deserialize(serialize(saved));
+    expect(loaded.ok).toBe(true);
+    if (!loaded.ok) return;
+    store().setSource('classDiagram\nZ');
+    await store().commitNow();
+    store().loadDocument(loaded.doc);
+    await store().commitNow();
+    expect(store().doc.source).toBe(saved.source);
+    expect(store().doc.layout).toEqual(saved.layout);
+    expect(store().doc.layout.nodes.A).toMatchObject({ x: 11, y: 22 });
+  });
+});

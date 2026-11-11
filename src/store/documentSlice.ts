@@ -15,7 +15,7 @@ import {
 } from '../core/document/schema';
 import { applyTextEdits } from '../core/text';
 import type { NodeId } from '../core/types';
-import { measurerOf, runLayoutEngine } from './derivedSlice';
+import { measurerOf, runLayoutEngine, stashOf } from './derivedSlice';
 import { getEditorBridge } from './editorBridge';
 import type { DocumentSlice, SliceCreator, Store } from './types';
 
@@ -70,7 +70,7 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
         s.past.push(state.doc);
       }
       // 되돌린 문서의 layout 은 그 문서 source 에 맞는 좌표 → 종류 전환 스왑을 하지 않는다
-      if (state.layoutKind) s.kindStash[state.layoutKind] = state.doc.layout.nodes;
+      if (state.layoutKind) s.kindStash[state.layoutKind] = stashOf(state.doc.layout);
       s.layoutKind = null;
       s.doc = target;
       s.historyKey = null;
@@ -164,7 +164,7 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
     },
     removeGroup: (groupId) => {
       const model = modelForEdit();
-      if (model) get().applyEdit(removeGroup(model, groupId), 'group:remove');
+      if (model) get().applyEdit(removeGroup(model, groupId, get().doc.source), 'group:remove');
     },
     renameGroup: (groupId, name) => {
       const model = modelForEdit();
@@ -180,7 +180,7 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
     },
     editSequenceText: (statementKey, text) => {
       const model = modelForEdit();
-      if (model?.kind === 'sequence') get().applyEdit(editStatementText(model, statementKey, text), `seq-text:${statementKey}`);
+      if (model?.kind === 'sequence') get().applyEdit(editStatementText(model, statementKey, text, get().doc.source), `seq-text:${statementKey}`);
     },
 
     beginInteraction: () => pushHistory(),

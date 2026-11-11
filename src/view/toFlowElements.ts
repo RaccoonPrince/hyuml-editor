@@ -20,7 +20,15 @@ export interface FlowInput {
   layout: LayoutState;
   selection: readonly NodeId[];
   theme: ThemeColors;
+  /** 지금 드래그 중인 도형들. 있으면 그 도형에 붙은 간선만 다시 계산한다 (놓으면 전체를 정확히 다시 계산) */
+  dragIds?: ReadonlySet<NodeId> | null;
 }
+
+/** 직전에 계산한 그래프 간선 결과 — 드래그 중 재사용용 */
+let lastGraph: {
+  model: GraphDiagramModel; canvas: LayoutState['canvas']; textStyles: LayoutState['textStyles'];
+  edgeStyles: LayoutState['edgeStyles']; edgeWaypoints: LayoutState['edgeWaypoints']; theme: ThemeColors; edges: Map<string, UmlEdge>;
+} | null = null;
 
 /**
  * 도형 노드 객체 캐시: 입력이 같으면 같은 객체를 돌려줘 React Flow 가 해당 노드를 다시 렌더하지 않게 한다.
@@ -46,7 +54,7 @@ export function toFlowElements(input: FlowInput): { nodes: AppNode[]; edges: Uml
 
 /** class·usecase 공통: 도형 + 그룹 상자 + 장애물 회피 경로 + 전역 라벨 배치 */
 function toGraphElements(input: FlowInput & { model: GraphDiagramModel }): { nodes: AppNode[]; edges: UmlEdge[] } {
-  const { model, layout, theme, selection } = input;
+  const { model, layout, theme, selection, dragIds } = input;
   const minSizes = measureShapes(model, layout);
   const shapeDeps = (nodeLayout: NodeLayout, selected: boolean) => [nodeLayout, selected, layout.canvas, layout.textStyles, theme];
 
@@ -104,16 +112,36 @@ function toGraphElements(input: FlowInput & { model: GraphDiagramModel }): { nod
   }
 
   const visibleEdges = model.edges.filter((edge) => rects[edge.source] && rects[edge.target]);
-  const routes = computeRoutes(visibleEdges, rects, { waypoints: layout.edgeWaypoints, direction: model.direction });
+
+  // 드래그 중 근사 모드: 움직이는 도형에 붙은 간선만 다시 계산하고 나머지는 직전 결과를 재사용한다.
+  // 입력(모델·스타일·꺾임점·테마)이 직전 계산과 같을 때만 쓰며, 드래그가 끝나면 dragIds 가 비어 전체를 정확히 다시 계산한다.
+  const previous = lastGraph;
+  const reusable = dragIds && dragIds.size > 0 && previous
+    && previous.model === model && previous.canvas === layout.canvas && previous.textStyles === layout.textStyles
+    && previous.edgeStyles === layout.edgeStyles && previous.edgeWaypoints === layout.edgeWaypoints && previous.theme === theme
+    ? previous.edges : null;
+  const affected = reusable
+    ? visibleEdges.filter((edge) => dragIds!.has(edge.source) || dragIds!.has(edge.target) || !reusable.has(edge.id))
+    : visibleEdges;
+  const affectedIds = new Set(affected.map((edge) => edge.id));
+
+  const routes = computeRoutes(visibleEdges, rects, {
+    waypoints: layout.edgeWaypoints, direction: model.direction, ...(reusable ? { only: affectedIds } : {}),
+  });
   const centerFontPt = (edgeId: string) => layout.textStyles[styleKeys.edgeLabel(edgeId)]?.fontSize ?? layout.canvas.fontSizePt;
   const endpointFontPt = (edgeId: string) => Math.max(8, centerFontPt(edgeId) + TYPO.endpointDeltaPt);
-  const labels = placeLabels(visibleEdges, routes, rects, {
+  const labels = placeLabels(affected, routes, rects, {
     center: (edgeId) => ptToPx(centerFontPt(edgeId)),
     endpoint: (edgeId) => ptToPx(endpointFontPt(edgeId)),
   });
 
   const edges: UmlEdge[] = [];
   for (const edge of visibleEdges) {
+    if (reusable && !affectedIds.has(edge.id)) {
+      const kept = reusable.get(edge.id);
+      if (kept) edges.push(kept);
+      continue;
+    }
     const route = routes[edge.id];
     if (!route) continue;
     const edgeStyle = layout.edgeStyles[edge.id];
@@ -142,6 +170,10 @@ function toGraphElements(input: FlowInput & { model: GraphDiagramModel }): { nod
       },
     });
   }
+  lastGraph = {
+    model, canvas: layout.canvas, textStyles: layout.textStyles, edgeStyles: layout.edgeStyles,
+    edgeWaypoints: layout.edgeWaypoints, theme, edges: new Map(edges.map((edge) => [edge.id, edge])),
+  };
   // 그룹 상자가 가장 아래 → 간선 → 도형 순으로 그려진다
   return { nodes: [...groupNodes, ...shapes], edges };
 }

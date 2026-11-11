@@ -69,7 +69,7 @@ function renameInStatement(statement: SeqStatement, from: NodeId, to: NodeId): S
 }
 
 /** 메시지·노트·프래그먼트·섹션 라벨 편집. key 로 대상을 찾는다. */
-export function editStatementText(model: SequenceModel, key: string, rawText: string): EditResult {
+export function editStatementText(model: SequenceModel, key: string, rawText: string, source?: string): EditResult {
   const text = rawText.trim();
   if (FORBIDDEN_TEXT_RE.test(text)) return { ok: false, reason: "텍스트에 줄바꿈, ';', '#' 은 쓸 수 없습니다. 줄바꿈은 <br> 로 입력하세요." };
 
@@ -87,9 +87,20 @@ export function editStatementText(model: SequenceModel, key: string, rawText: st
     case 'message': {
       const { message } = target;
       if (text === message.text) return NOOP_EDIT;
-      edit = message.textRange
-        ? { ...message.textRange, text }
-        : { start: message.textInsertAt!, end: message.textInsertAt!, text: `: ${text}` };
+      if (message.textRange && text === '') {
+        // 빈 값이면 "A->>B: " 처럼 콜론이 남지 않도록 앞의 공백과 콜론까지 지운다
+        let start = message.textRange.start;
+        if (source) {
+          let i = start;
+          while (i > 0 && /[ \t]/.test(source[i - 1]!)) i -= 1;
+          if (source[i - 1] === ':') start = i - 1;
+        }
+        edit = { start, end: message.textRange.end, text: '' };
+      } else {
+        edit = message.textRange
+          ? { ...message.textRange, text }
+          : { start: message.textInsertAt!, end: message.textInsertAt!, text: `: ${text}` };
+      }
       updated = { ...target, message: { ...message, text } };
       break;
     }
