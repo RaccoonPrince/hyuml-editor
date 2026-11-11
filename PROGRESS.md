@@ -370,7 +370,7 @@ sequenceDiagram
 
 ### 2026-11-11 — README 전면 개편 + GitHub 저장소 생성
 - `README.md` 를 팀원·외부 독자용 문서로 재작성: 빠른 시작, 사용 방법(캔버스 조작표·툴바 설명), 지원 문법 예시, 아키텍처, 기능별 구현 방법, 디자인 패턴 표, 핵심 알고리즘 표, 폴더 구조, 테스트, 기술 스택. 툴바 버튼 이름은 `Toolbar.tsx` 실제 문구와 대조함.
-- GitHub 원격 저장소 생성 및 push (계정 `RaccoonPrince`, 비공개). 원격 이름 `origin`, 기본 브랜치 `master`.
+- GitHub 원격 저장소 생성 및 push (계정 `RaccoonPrince`). 원격 이름 `origin`, 기본 브랜치 `master`. 처음엔 비공개로 만들었고, 같은 날 팀원 공유를 위해 **공개(public)** 로 전환 — https://github.com/RaccoonPrince/hyuml-editor
 - 코드 변경 없음.
 
 ### 2026-11-11 — 마우스 오버 시 테두리·간선 굵게 강조
