@@ -70,7 +70,7 @@ export function Toolbar() {
   };
 
   return (
-    <div className="hy-no-export" style={barStyle} role="toolbar" aria-label="다이어그램 도구">
+    <div className="hy-no-export hy-controls" style={barStyle} role="toolbar" aria-label="다이어그램 도구">
       <button type="button" style={primary} onClick={() => void actions().commitNow()} title="코드를 즉시 적용">▶ 적용</button>
       <button type="button" style={secondary} disabled={!s.canUndo} onClick={() => actions().undo()} title="실행 취소 (Ctrl+Z)" aria-label="실행 취소">↶</button>
       <button type="button" style={secondary} disabled={!s.canRedo} onClick={() => actions().redo()} title="다시 실행 (Ctrl+Shift+Z)" aria-label="다시 실행">↷</button>
@@ -154,7 +154,7 @@ export function Toolbar() {
         </select>
       </label>
       <label style={labelStyle}>
-        {s.kind === 'sequence' ? '메시지' : '간선'}
+        간선
         <select aria-label="전체 간선 굵기" style={selectStyle} defaultValue=""
           onChange={(event) => { if (event.target.value) actions().updateAllEdgeStyles({ strokeWidth: Number(event.target.value) }); }}>
           <option value="" disabled>굵기</option>

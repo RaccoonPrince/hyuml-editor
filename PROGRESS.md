@@ -364,9 +364,20 @@ sequenceDiagram
 
 ## 9. 변경 이력 (최신이 위)
 
+### 2026-11-18 — PR #1 검토 후 수정: 빈 메시지 콜론 복원, 툴바 문구, 툴바 마우스 오버 강조
+- **PR #1(final-prototype) 검토**: pull 후 tsc·oxlint·build·단위 132개·e2e 33개 통과. 기존 기능(Ctrl+드래그 선택, 마우스 오버 강조, 꺾임점 드래그, 백틱 그룹화)은 브라우저에서 모두 정상 확인. 문제는 아래 1건.
+- **빈 메시지 콜론 — PR 의 변경을 되돌림** (`sequence/edits.ts`, `documentSlice.ts`, `sequence.test.ts`)
+  - PR 은 메시지를 비우면 `A->>B` 처럼 콜론까지 지웠는데, 브라우저에서 실제 `mermaid.parse` 로 확인하니 **콜론 없는 `A->>B` 는 Mermaid 파싱 오류**였다. `A->>B: `, `A->>B:` 는 정상(줄 위치·들여쓰기와 무관).
+  - 그래서 예전 동작(텍스트 범위만 비우고 콜론은 남김)으로 복원하고 `editStatementText` 의 `source` 인자를 제거했다. 테스트는 "비워도 콜론이 남는다"로 바꿨다.
+  - 원인 메모: 10-14 에 이 문서가 "`A->>B: ` 를 Mermaid 가 거부할 수 있음(불명)"이라고 적었는데, 확인해 보니 틀린 추측이었다.
+- **툴바 문구** (`Toolbar.tsx`): 전체 간선 굵기·색 칸의 이름이 시퀀스에서 "메시지"로 바뀌던 것을 항상 "간선"으로 표시.
+- **툴바 마우스 오버 강조** (`src/index.css`, `Toolbar.tsx`, `FormatToolbar.tsx`): 상단 툴바와 글자 서식 도구에 `hy-controls` 클래스를 붙이고, 그 안의 버튼·선택 상자·입력칸에 마우스를 올리면 바깥에 2px 하늘색(`#66b3e8`) 링이 생긴다(`box-shadow`, 크기 변화 없음). 비활성 버튼은 제외. 인라인 스타일로는 `:hover` 를 쓸 수 없어 전역 CSS 를 사용했다.
+- 검증: tsc·oxlint·build 통과, 단위 테스트 132개, e2e 33개 통과. 브라우저에서 툴바 링 표시·"간선" 문구·빈 메시지 후 Mermaid 경고 0건을 확인.
+- 참고(개발 환경): `npm install` 로 의존성이 바뀐 뒤 계속 켜 둔 개발 서버는 mermaid 모듈을 못 불러와 "Mermaid 호환성 경고: Failed to fetch dynamically imported module" 이 뜰 수 있다. 개발 서버를 재시작하면 사라진다(코드 문제 아님).
+
 ### 2026-11-11 — 최종 프로토타입 마무리 (브랜치 final-prototype)
 - **검증**: Playwright e2e(`e2e/run.mjs`, `npm run e2e`) 추가. 3종 다이어그램 × 11개 항목을 실제 브라우저로 확인하고 스크린샷을 `docs/screenshots/`에 저장. 개발 서버에서만 `window.__hyuml`(스토어)을 노출(`main.tsx`, 프로덕션 빌드 제외). devDependency `playwright` 추가.
-- **버그/정리**: 시퀀스 메시지를 빈 값으로 편집하면 콜론까지 지움(`editStatementText` 에 source 인자 추가). 그룹 생성은 문서 본문 들여쓰기를 따르고 해제 시 안쪽 줄을 한 단계 내어씀(`removeGroup` 에 source 인자 추가). 종류 전환 시 `textStyles/edgeStyles/edgeWaypoints` 도 종류별로 보관·복원(`KindStash`). 고립 노드 교체 = 리네임 정책 확정 + 테스트 고정.
+- **버그/정리**: 시퀀스 메시지를 빈 값으로 편집하면 콜론까지 지움(`editStatementText` 에 source 인자 추가) — **2026-11-18 에 되돌림(Mermaid 비호환)**. 그룹 생성은 문서 본문 들여쓰기를 따르고 해제 시 안쪽 줄을 한 단계 내어씀(`removeGroup` 에 source 인자 추가). 종류 전환 시 `textStyles/edgeStyles/edgeWaypoints` 도 종류별로 보관·복원(`KindStash`). 고립 노드 교체 = 리네임 정책 확정 + 테스트 고정.
 - **성능**: 드래그 중에는 움직이는 도형에 붙은 간선만 경로·라벨을 다시 계산(`RouteOptions.only`, `toFlowElements` 의 `dragIds`, `FlowCanvas` 가 드래그 시작·종료에서 설정). 드래그 프레임 12~16ms → 약 1ms(클래스 30·40개). 놓으면 전체 재계산(결과 동일, 테스트로 고정).
 - **테스트**: 113 → 132개. 이름 변경 승계, 오류 중 직전 상태·좌표 유지, 좌표 불변, 저장·불러오기 왕복, 그룹 들여쓰기, 빈 메시지, 종류 전환 스타일, 성능 측정(`src/view/perf.test.ts`), 드래그 재사용(`toFlowElements.test.ts`).
 - **문서**: README 사용·테스트 절 갱신, `docs/REQUIREMENTS_CHECK.md` 추가.

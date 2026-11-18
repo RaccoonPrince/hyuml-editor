@@ -16,3 +16,16 @@ body {
 	min-width: 0;
 	min-height: 0;
 }
+
+/* 툴바·서식 도구: 마우스를 올리면 테두리 바깥 링으로 살짝 굵게 (진한 파란 툴바 배경에서도 보이는 하늘색) */
+.hy-controls button,
+.hy-controls select,
+.hy-controls input {
+	transition: box-shadow 0.1s ease;
+}
+
+.hy-controls button:not(:disabled):hover,
+.hy-controls select:not(:disabled):hover,
+.hy-controls input:not(:disabled):hover {
+	box-shadow: 0 0 0 2px #66b3e8;
+}

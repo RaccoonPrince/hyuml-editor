@@ -180,7 +180,7 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
     },
     editSequenceText: (statementKey, text) => {
       const model = modelForEdit();
-      if (model?.kind === 'sequence') get().applyEdit(editStatementText(model, statementKey, text, get().doc.source), `seq-text:${statementKey}`);
+      if (model?.kind === 'sequence') get().applyEdit(editStatementText(model, statementKey, text), `seq-text:${statementKey}`);
     },
 
     beginInteraction: () => pushHistory(),

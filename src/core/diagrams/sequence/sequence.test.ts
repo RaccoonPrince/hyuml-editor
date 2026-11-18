@@ -234,15 +234,16 @@ describe('contrastTextOn', () => {
 });
 
 describe('빈 메시지 편집', () => {
-  it('텍스트를 비우면 콜론까지 지운다 (A->>B: 로 남지 않는다)', () => {
+  // Mermaid 기준(브라우저에서 mermaid.parse 로 확인): `A->>B: ` 는 정상, 콜론 없는 `A->>B` 는 파싱 오류
+  it('텍스트를 비워도 콜론은 남겨 Mermaid 호환 코드를 유지한다', () => {
     const source = 'sequenceDiagram\nA->>B: hi\nB-->>A:   ok';
     const m = parseSequenceDiagram(source).model!;
-    const first = editStatementText(m, messages(m)[0]!.key, '', source);
-    expect(first.ok && applyTextEdits(source, first.edits)).toBe('sequenceDiagram\nA->>B\nB-->>A:   ok');
-    const second = editStatementText(m, messages(m)[1]!.key, '  ', source);
-    expect(second.ok && applyTextEdits(source, second.edits)).toBe('sequenceDiagram\nA->>B: hi\nB-->>A');
-    // 비운 결과도 다시 파싱된다
-    const reparsed = parseSequenceDiagram('sequenceDiagram\nA->>B\nB-->>A');
+    const first = editStatementText(m, messages(m)[0]!.key, '');
+    expect(first.ok && applyTextEdits(source, first.edits)).toBe('sequenceDiagram\nA->>B: \nB-->>A:   ok');
+    const second = editStatementText(m, messages(m)[1]!.key, '  ');
+    expect(second.ok && applyTextEdits(source, second.edits)).toBe('sequenceDiagram\nA->>B: hi\nB-->>A:   ');
+    const reparsed = parseSequenceDiagram('sequenceDiagram\nA->>B: \nB-->>A:   ');
     expect(reparsed.diagnostics.filter((d) => d.severity === 'error')).toEqual([]);
+    expect(messages(reparsed.model!).map((msg) => msg.text)).toEqual(['', '']);
   });
 });

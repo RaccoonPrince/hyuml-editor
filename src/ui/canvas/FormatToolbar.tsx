@@ -45,7 +45,7 @@ export function FormatToolbar({ target, fontSize, color, strokeWidth, stroke, fi
   const isEdge = target.kind === 'edge';
 
   return (
-    <div className="nodrag nopan hy-no-export" onMouseDown={keep} style={toolbarStyle} role="toolbar" aria-label="서식">
+    <div className="nodrag nopan hy-no-export hy-controls" onMouseDown={keep} style={toolbarStyle} role="toolbar" aria-label="서식">
       <button type="button" title="글자 작게" aria-label="글자 작게" style={buttonStyle}
         onMouseDown={(event) => { keep(event); updateTextStyle(target.styleKey, { fontSize: Math.max(LIMITS.fontSize.min, fontSize - 1) }); }}>
         -
