@@ -69,6 +69,8 @@ export interface RouteOptions {
   waypoints?: Record<EdgeId, readonly Point[]>;
   /** 다이어그램 흐름 방향 (나가는 변 선택 기준) */
   direction?: Direction;
+  /** 지정하면 이 간선들만 경로를 계산한다 (끝점 슬롯 배정은 전체 기준 그대로). 드래그 중 갱신 비용을 줄이는 근사 모드 */
+  only?: ReadonlySet<EdgeId>;
 }
 
 export function computeRoutes(
@@ -129,6 +131,7 @@ export function computeRoutes(
     const start = pointOf.get(`${edgeIndex}:source`);
     const end = pointOf.get(`${edgeIndex}:target`);
     if (!sides || !start || !end) continue;
+    if (options.only && !options.only.has(edge.id)) continue;
     let points: Point[];
     const waypoints = options.waypoints?.[edge.id];
     if (edge.source === edge.target) {

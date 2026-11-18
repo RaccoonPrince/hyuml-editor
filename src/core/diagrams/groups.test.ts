@@ -78,3 +78,30 @@ describe('회귀: 백틱 식별자 클래스 그룹화', () => {
     expect(m.groups[0]?.members.sort()).toEqual(['B', 'My Class']);
   });
 });
+
+describe('들여쓰기 (생성·해제)', () => {
+  it('본문 들여쓰기(2칸)에 맞춰 그룹 블록을 만들고, 해제하면 안쪽 줄을 내어쓴다', () => {
+    const source = 'classDiagram\n  class A\n  class B\n  A --> B\n';
+    const grouped = apply(source, (m) => createGroup(m, source, ['A', 'B'], 'Core'));
+    expect(grouped).toBe(`${source}  namespace Core {\n    class A\n    class B\n  }\n`);
+    const ungrouped = apply(grouped, (m) => removeGroup(m, 'Core', grouped));
+    expect(ungrouped).toBe(`${source}  class A\n  class B\n`);
+    expect(parse(ungrouped).groups).toEqual([]);
+  });
+
+  it('sequence: box 도 본문 들여쓰기를 따르고 해제 후 한 단계 내어쓴다', () => {
+    const source = 'sequenceDiagram\n  participant A\n  participant B\n  A->>B: hi\n';
+    const grouped = apply(source, (m) => createGroup(m, source, ['A', 'B'], 'Front'));
+    expect(grouped).toContain('\n  box Front\n    participant A\n    participant B\n  end\n');
+    const ungrouped = apply(grouped, (m) => removeGroup(m, parse(grouped).groups[0]!.id, grouped));
+    expect(ungrouped).toBe('sequenceDiagram\n  participant A\n  participant B\n  A->>B: hi\n');
+  });
+
+  it('usecase: systemBoundary 도 같은 규칙', () => {
+    const source = 'usecase-beta\n  actor U\n  Login\n  U --> Login\n';
+    const grouped = apply(source, (m) => createGroup(m, source, ['Login'], 'Shop'));
+    expect(grouped).toContain('  systemBoundary Shop\n    Login\n  end\n');
+    const ungrouped = apply(grouped, (m) => removeGroup(m, 'Shop', grouped));
+    expect(ungrouped).toBe(`${source}  Login\n`);
+  });
+});

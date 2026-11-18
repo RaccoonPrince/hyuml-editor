@@ -43,6 +43,7 @@ npm run dev          # 개발 서버 실행 → 터미널에 나온 주소를 �
 | `npm run preview` | `vite preview` | 빌드 결과 미리보기 |
 | `npm run test` | `vitest run` | 단위 테스트 1회 실행 |
 | `npm run test:watch` | `vitest` | 테스트 감시 모드 |
+| `npm run e2e` | `node e2e/run.mjs` | 브라우저(Chromium) UI 시나리오 검증 — [9절](#9-테스트) 참고 |
 | `npm run typecheck` | `tsc -b` | 타입 검사만 |
 | `npm run lint` | `oxlint` | 린트 |
 
@@ -69,6 +70,7 @@ npm run dev          # 개발 서버 실행 → 터미널에 나온 주소를 �
 
 - 가운데 세로 막대를 끌면 코드 창 너비가 바뀝니다. 툴바의 `💻 코드 창`으로 숨기거나 보일 수 있습니다.
 - 코드에 오류가 있으면 코드 창 아래 진단 목록에 표시되고, 클릭하면 해당 줄로 이동합니다. 오류가 있는 동안 캔버스는 **마지막으로 정상이었던 그림을 유지**합니다.
+- 코드를 고쳐도 이미 있는 도형의 위치는 바뀌지 않고, 새 도형만 빈 곳에 놓입니다. 도형 이름 하나가 사라지고 새 이름 하나가 생기면(간선 연결이 같을 때, 연결이 없는 도형끼리는 항상) 이름 변경으로 보고 위치와 스타일을 그대로 이어받습니다.
 
 ### 캔버스 조작
 
@@ -330,13 +332,30 @@ src/
 
 ## 9. 테스트
 
+### 단위 테스트
+
 ```bash
 npm run test
 ```
 
-- Vitest, Node 환경에서 `src/**/*.test.ts`를 실행합니다(현재 10개 파일, 113개 테스트).
-- 대상: 세 파서와 편집 함수, reconcile, 경로·라벨, 스토어(커밋 순서, Undo, 이름 변경 시 좌표 보존), 직렬화, DPI 기록.
-- UI 컴포넌트(.tsx) 테스트는 아직 없습니다.
+- Vitest, Node 환경에서 `src/**/*.test.ts`를 실행합니다(현재 12개 파일, 132개 테스트).
+- 대상: 세 파서와 편집 함수, reconcile(이름 변경 승계·고립 노드 정책), 경로·라벨, 스토어(커밋 순서, Undo, 오류 시 직전 상태 유지, 좌표 불변, 종류 전환), 저장·불러오기 왕복, 그룹 생성·해제 들여쓰기, DPI 기록.
+- `src/view/perf.test.ts`는 클래스 30개·40개의 파싱 → reconcile → toFlowElements 시간을 측정해 출력하고(`[perf]` 로그, 1초 상한 단언), 드래그 프레임 비용도 함께 보여줍니다. 수치를 보려면 `npx vitest run src/view/perf.test.ts --reporter=verbose`.
+
+### E2E (브라우저 시나리오)
+
+실제 Chromium으로 앱을 조작해 클래스·유스케이스·시퀀스 각각에서 코드 입력 → 렌더링, 도형 드래그, Undo/Redo, 코드 추가 시 좌표 불변, 이름 변경 시 좌표 승계, 문법 오류 시 직전 그림 유지, 그룹 만들기(Ctrl+드래그), PNG 300dpi 내보내기, 프로젝트 저장·불러오기를 확인합니다. 단계별 스크린샷은 `docs/screenshots/`에 저장됩니다.
+
+```bash
+npm install
+npx playwright install chromium   # 최초 1회: 브라우저 내려받기
+npm run dev                       # 터미널 1: 개발 서버 (기본 http://localhost:5173)
+npm run e2e                       # 터미널 2: 시나리오 실행 (다른 주소는 E2E_URL 환경변수)
+```
+
+- 개발 서버에서만 `window.__hyuml`(스토어)이 노출되며 프로덕션 빌드에는 포함되지 않습니다. 스크립트는 이 값으로 좌표·소스를 검증합니다.
+- Monaco 편집기는 CDN에서 내려받으므로 인터넷 연결이 필요합니다.
+- 요구사항별 충족 여부는 [docs/REQUIREMENTS_CHECK.md](docs/REQUIREMENTS_CHECK.md)에 있습니다.
 
 ---
 
