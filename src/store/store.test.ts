@@ -367,3 +367,37 @@ describe('상자 최소 폭 (D6)', () => {
     expect(store().doc.layout.nodes.Order!.w).toBe(required + 120);
   });
 });
+
+describe('전체 글꼴 변경 (개별 글꼴 통일)', () => {
+  it('개별 글꼴을 지정한 뒤 전체 글꼴을 바꾸면 모든 도형·라벨이 전체 값을 따른다 (색은 유지)', async () => {
+    store().setSource('classDiagram\nclass A {\n  +x: int\n}\nA --> B : uses');
+    await store().commitNow();
+    const model = store().model;
+    const edgeId = model?.kind === 'class' ? model.edges[0]!.id : '';
+    const keys = [styleKeys.title('A'), styleKeys.member('A', 'x'), styleKeys.edgeLabel(edgeId)];
+    store().updateTextStyle(keys[0]!, { fontSize: 20, color: '#d32f2f' });
+    store().updateTextStyle(keys[1]!, { fontSize: 9 });
+    store().updateTextStyle(keys[2]!, { fontSize: 16 });
+
+    store().setFontSize(14);
+    const styles = store().doc.layout.textStyles;
+    for (const key of keys) expect(styles[key]?.fontSize).toBeUndefined();
+    expect(styles[keys[0]!]?.color).toBe('#d32f2f');
+    expect(store().doc.layout.canvas.fontSizePt).toBe(14);
+
+    // 이후 개별 변경은 다시 가능
+    store().updateTextStyle(keys[0]!, { fontSize: 18 });
+    expect(store().doc.layout.textStyles[keys[0]!]?.fontSize).toBe(18);
+  });
+
+  it('Ctrl+Z 한 번으로 개별 글꼴과 이전 전체 글꼴이 모두 돌아온다', async () => {
+    const key = styleKeys.title('A');
+    store().updateTextStyle(key, { fontSize: 20 });
+    const before = store().doc.layout;
+    store().setFontSize(16);
+    expect(store().doc.layout.textStyles[key]?.fontSize).toBeUndefined();
+    store().undo();
+    expect(store().doc.layout.canvas.fontSizePt).toBe(before.canvas.fontSizePt);
+    expect(store().doc.layout.textStyles[key]?.fontSize).toBe(20);
+  });
+});

@@ -40,3 +40,17 @@ describe('드래그 중 간선 재계산', () => {
     expect(result.edges).toHaveLength(model.edges.length);
   });
 });
+
+describe('도형 객체 재사용 (간선 서식 툴바 유지)', () => {
+  it('간선 라벨 글자 스타일이 바뀌어도 도형 객체는 그대로이고, 자기 스타일이 바뀌면 새로 만든다', () => {
+    const first = toFlowElements({ model, layout: base, selection: [], theme });
+    const edgeStyled = { ...base, textStyles: { 'edge:A|association|B/label': { fontSize: 14, isCustomized: true } } };
+    const second = toFlowElements({ model, layout: edgeStyled, selection: [], theme });
+    for (const node of first.nodes) expect(second.nodes.find((n) => n.id === node.id)).toBe(node);
+
+    const ownStyled = { ...edgeStyled, textStyles: { ...edgeStyled.textStyles, 'node:A/title': { fontSize: 20, isCustomized: true } } };
+    const third = toFlowElements({ model, layout: ownStyled, selection: [], theme });
+    expect(third.nodes.find((n) => n.id === 'A')).not.toBe(second.nodes.find((n) => n.id === 'A'));
+    expect(third.nodes.find((n) => n.id === 'B')).toBe(second.nodes.find((n) => n.id === 'B'));
+  });
+});

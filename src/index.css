@@ -29,3 +29,8 @@ body {
 .hy-controls input:not(:disabled):hover {
 	box-shadow: 0 0 0 2px #66b3e8;
 }
+
+/* 서식 툴바가 떠 있는 간선 라벨 레이어는 도형(선택된 도형 포함)보다 위에 둔다 — 겹쳐도 툴바가 가려지지 않게 */
+.react-flow__edgelabel-renderer:has(.hy-controls) {
+  z-index: 5000;
+}

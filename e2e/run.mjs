@@ -443,12 +443,98 @@ async function runFontWidth(browser) {
   await context.close();
 }
 
+/** 서식 툴바: 전체 글꼴 통일, 관계선 툴바 유지(+/-), 선택된 클래스 위에 표시 */
+async function runFormatToolbar(browser) {
+  const context = await browser.newContext({ viewport: { width: 1500, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(URL);
+  await page.waitForFunction(() => window.__hyuml, null, { timeout: 30000 });
+  await page.locator('.monaco-editor').first().waitFor({ timeout: 30000 });
+  await setCode(page, 'classDiagram\n  class Order\n  class Item\n  Order --> Item : uses\n');
+  const label = page.getByLabel('관계 라벨 Order → Item', { exact: true });
+  const toolbar = page.locator('[role=toolbar][aria-label=서식]');
+  const edgeKey = 'edge:Order|association|Item|uses/label';
+  const fontOf = (key) => page.evaluate((k) => window.__hyuml.getState().doc.layout.textStyles[k]?.fontSize, key);
+
+  await check('class', '관계선 서식 툴바: 글꼴 +/- 를 눌러도 툴바가 유지되고 크기가 바뀜', async () => {
+    await label.click();
+    await page.waitForTimeout(300);
+    assert((await toolbar.count()) === 1, '클릭해도 툴바가 안 뜸');
+    const plus = page.getByLabel('글자 크게');
+    for (let i = 0; i < 2; i += 1) {
+      const box = await plus.boundingBox();
+      await page.mouse.click(box.x + box.width / 2, box.y + box.height / 2);
+      await page.waitForTimeout(250);
+      assert((await toolbar.count()) === 1, `${i + 1}번째 + 후 툴바가 사라짐`);
+    }
+    const size = await fontOf(edgeKey);
+    assert(size === 12, `글자 크기 ${size} (기대 12)`);
+    const minus = page.getByLabel('글자 작게');
+    const mb = await minus.boundingBox();
+    await page.mouse.click(mb.x + mb.width / 2, mb.y + mb.height / 2);
+    await page.waitForTimeout(250);
+    assert((await toolbar.count()) === 1 && (await fontOf(edgeKey)) === 11, '- 후 툴바/크기 이상');
+    await shot(page, 'class', '15-edge-toolbar');
+  });
+
+  await check('class', '클래스 선택 상태에서 관계선을 클릭해도 서식 툴바가 도형 위에 표시됨', async () => {
+    await page.evaluate(() => document.activeElement?.blur());
+    await page.evaluate(() => window.__hyuml.getState().setSelection([]));
+    // 선택된 Order 상자를 크게 키워 툴바가 뜰 자리를 덮게 한다 (옮기면 경로·라벨이 바뀌므로 측정→배치를 몇 번 반복)
+    const scaleOf = () => page.evaluate(() => {
+      const el = document.querySelector('.react-flow__node[data-id="Order"]').getBoundingClientRect();
+      const n = window.__hyuml.getState().doc.layout.nodes.Order;
+      return { scale: el.width / n.w, ox: el.x - n.x * (el.width / n.w), oy: el.y - n.y * (el.width / n.w) };
+    });
+    let target = await (async () => { await label.click(); await page.waitForTimeout(300); return toolbar.boundingBox(); })();
+    for (let attempt = 0; attempt < 3; attempt += 1) {
+      await page.evaluate(() => { document.activeElement?.blur(); window.__hyuml.getState().setSelection([]); });
+      const g = await scaleOf();
+      const cx = (target.x + target.width / 2 - g.ox) / g.scale;
+      // 상자 아래 가장자리를 툴바 아래쪽 4분의 3 지점에 둔다 — 툴바 중심은 덮지만 라벨(툴바 아래)은 덮지 않아 클릭할 수 있다
+      const bottom = (target.y + target.height * 0.75 - g.oy) / g.scale;
+      await page.evaluate(({ cx, bottom }) => {
+        const s = window.__hyuml.getState();
+        s.resizeNode('Order', { x: cx - 600, y: bottom - 1200, w: 1200, h: 1200 });
+        s.setSelection(['Order']);
+      }, { cx, bottom });
+      await page.waitForTimeout(500);
+      await label.click();
+      await page.waitForTimeout(400);
+      target = await toolbar.boundingBox();
+    }
+    assert((await toolbar.count()) === 1, '툴바가 안 뜸');
+    const tb = await toolbar.boundingBox();
+    const order = await page.locator('.react-flow__node[data-id="Order"]').boundingBox();
+    const cx = tb.x + tb.width / 2, cy = tb.y + tb.height / 2;
+    assert(cx > order.x && cx < order.x + order.width && cy > order.y && cy < order.y + order.height, '툴바가 도형과 겹치지 않아 검증 불가');
+    const onTop = await page.evaluate(({ cx, cy }) => !!document.elementFromPoint(cx, cy)?.closest('[role=toolbar][aria-label=서식]'), { cx, cy });
+    await shot(page, 'class', '16-toolbar-over-node');
+    assert(onTop, '서식 툴바가 선택된 도형 뒤에 가려짐');
+  });
+
+  await check('class', '전체 글꼴을 바꾸면 개별 글꼴이 통일되고 이후 개별 변경도 가능', async () => {
+    await page.evaluate(() => { document.activeElement?.blur(); window.__hyuml.getState().setSelection([]); });
+    await page.evaluate(() => { const s = window.__hyuml.getState(); s.updateTextStyle('node:Order/title', { fontSize: 20 }); });
+    await page.getByLabel('다이어그램 글꼴 크기').selectOption('14');
+    await page.waitForTimeout(500);
+    const left = await page.evaluate(() => Object.entries(window.__hyuml.getState().doc.layout.textStyles).filter(([, v]) => v.fontSize !== undefined).map(([k]) => k));
+    assert(left.length === 0, `개별 글꼴이 남음: ${left.join(', ')}`);
+    await page.evaluate(() => window.__hyuml.getState().updateTextStyle('node:Order/title', { fontSize: 18 }));
+    assert((await fontOf('node:Order/title')) === 18, '이후 개별 변경 실패');
+    await page.keyboard.press('Control+z');
+    await page.waitForTimeout(300);
+  });
+  await context.close();
+}
+
 const browser = await chromium.launch();
 for (const [kind, sc] of Object.entries(SCENARIOS)) await runKind(browser, kind, sc);
 await runExportClip(browser);
 await runFontOverlap(browser);
 await runInteractions(browser);
 await runFontWidth(browser);
+await runFormatToolbar(browser);
 await browser.close();
 
 const lines = results.map((r) => `${r.ok ? 'PASS' : 'FAIL'}  ${r.kind.padEnd(9)} ${r.name}${r.note ? `  — ${r.note}` : ''}`);

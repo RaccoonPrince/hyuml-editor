@@ -325,6 +325,13 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
       pushHistory('canvas-font');
       set((s) => {
         s.doc.layout.canvas.fontSizePt = Math.min(LIMITS.canvasFont.max, Math.max(LIMITS.canvasFont.min, pt));
+        // 전체 글꼴을 바꾸면 모든 도형·라벨의 개별 글꼴 크기 설정을 지워 전체 값으로 통일한다 (색·배경색은 유지).
+        // 이후의 개별 변경은 다시 가능하다.
+        for (const [key, style] of Object.entries(s.doc.layout.textStyles)) {
+          if (style.fontSize === undefined) continue;
+          delete style.fontSize;
+          if (style.color === undefined && style.fill === undefined) delete s.doc.layout.textStyles[key];
+        }
       });
       get().refitNodes();
     },
