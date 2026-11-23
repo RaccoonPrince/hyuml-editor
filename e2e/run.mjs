@@ -282,8 +282,45 @@ async function runKind(browser, kind, sc) {
   await context.close();
 }
 
+/** 도형 바깥으로 꺾인 연결선도 내보내기 이미지에 포함되는지 (이미지가 꺾이지 않은 경우보다 커야 한다) */
+async function runExportClip(browser) {
+  const context = await browser.newContext({ viewport: { width: 1500, height: 900 }, acceptDownloads: true });
+  const page = await context.newPage();
+  await page.goto(URL);
+  await page.waitForFunction(() => window.__hyuml, null, { timeout: 30000 });
+  await page.locator('.monaco-editor').first().waitFor({ timeout: 30000 });
+  await setCode(page, 'classDiagram\n  class Alpha\n  class Beta\n  Alpha --> Beta\n');
+  const exportSize = async (name) => {
+    const [download] = await Promise.all([
+      page.waitForEvent('download', { timeout: 30000 }),
+      page.getByRole('button', { name: 'PNG', exact: true }).click(),
+    ]);
+    const file = path.join(shots, name);
+    await download.saveAs(file);
+    const buf = readFileSync(file);
+    return { w: buf.readUInt32BE(16), h: buf.readUInt32BE(20), dpi: pngDpi(buf) };
+  };
+  await check('class', '바깥으로 꺾인 연결선이 내보내기에서 잘리지 않음', async () => {
+    const plain = await exportSize('class-10-export-plain.png');
+    await page.evaluate(() => {
+      const s = window.__hyuml.getState();
+      const edge = s.model.edges[0];
+      const n = Object.values(s.doc.layout.nodes);
+      const maxX = Math.max(...n.map((r) => r.x + r.w)), maxY = Math.max(...n.map((r) => r.y + r.h));
+      s.setEdgeWaypoints(edge.id, [{ x: maxX + 400, y: maxY + 300 }]);
+    });
+    await page.waitForTimeout(500);
+    const bent = await exportSize('class-11-export-bent.png');
+    assert(bent.w > plain.w + 300 && bent.h > plain.h + 200, `이미지가 커지지 않음 ${plain.w}x${plain.h} → ${bent.w}x${bent.h}`);
+    assert(bent.dpi >= 299 && bent.dpi <= 301, `dpi=${bent.dpi}`);
+    return `${plain.w}x${plain.h} → ${bent.w}x${bent.h}`;
+  });
+  await context.close();
+}
+
 const browser = await chromium.launch();
 for (const [kind, sc] of Object.entries(SCENARIOS)) await runKind(browser, kind, sc);
+await runExportClip(browser);
 await browser.close();
 
 const lines = results.map((r) => `${r.ok ? 'PASS' : 'FAIL'}  ${r.kind.padEnd(9)} ${r.name}${r.note ? `  — ${r.note}` : ''}`);

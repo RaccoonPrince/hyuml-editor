@@ -7,13 +7,15 @@ import type { LayoutEngineName } from '../core/document/schema';
 import { LIMITS } from '../core/document/schema';
 import { GROUP_NODE_PREFIX } from '../view/flowTypes';
 import { themeOf } from '../core/theme';
+import { exportBounds } from '../export/bounds';
 import { exportDiagram } from '../export/exporter';
+import type { Point } from '../core/types';
 import type { ExportFormat } from '../export/exporter';
 import { useDiagramStore } from '../store/useDiagramStore';
 
 export function Toolbar() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { getNodes, getNodesBounds } = useReactFlow();
+  const { getNodes, getEdges, getNodesBounds } = useReactFlow();
   const s = useDiagramStore(useShallow((state) => ({
     isDarkMode: state.isDarkMode,
     hideEmpty: state.doc.layout.canvas.hideEmptyCompartments,
@@ -43,7 +45,10 @@ export function Toolbar() {
       const state = actions();
       await exportDiagram(format, {
         doc: state.doc,
-        bounds: getNodes().length > 0 ? getNodesBounds(getNodes()) : null,
+        // 도형 경계 + 연결선 경로(꺾임점 포함) — 바깥으로 꺾인 선이 잘리지 않게
+        bounds: getNodes().length > 0
+          ? exportBounds(getNodesBounds(getNodes()), getEdges().map((edge) => (edge.data as { points?: Point[] } | undefined)?.points ?? []))
+          : null,
         viewport: document.querySelector<HTMLElement>('#canvas-root .react-flow__viewport'),
         background: themeOf(state.isDarkMode).canvasBg,
         dpi: 300,
