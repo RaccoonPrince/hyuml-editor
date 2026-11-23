@@ -410,11 +410,45 @@ async function runInteractions(browser) {
   await context.close();
 }
 
+/** N-01: 글꼴 8~24pt 전 구간에서 클래스 상자의 가장 긴 줄이 잘리지 않는지 */
+async function runFontWidth(browser) {
+  const context = await browser.newContext({ viewport: { width: 1500, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(URL);
+  await page.waitForFunction(() => window.__hyuml, null, { timeout: 30000 });
+  await page.locator('.monaco-editor').first().waitFor({ timeout: 30000 });
+  await setCode(page, 'classDiagram\n  class Order {\n    +id: string\n    +total: number\n    +pay(amount: number) bool\n  }\n  class Item\n  class Lonely\n  Order --> Item\n');
+  await check('class', '글꼴 8~24pt 에서 멤버 줄이 잘리지 않음', async () => {
+    const widths = [];
+    for (const pt of [8, 10, 12, 16, 20, 24]) {
+      await page.getByLabel('다이어그램 글꼴 크기').selectOption(String(pt));
+      await page.waitForTimeout(600);
+      const clipped = await page.evaluate(() => [...document.querySelectorAll('.react-flow__node[data-id="Order"] input')]
+        .filter((i) => i.scrollWidth > i.clientWidth).map((i) => i.value));
+      assert(clipped.length === 0, `${pt}pt 잘림: ${clipped.join(' | ')}`);
+      widths.push(`${pt}pt=${Math.round((await page.evaluate(() => window.__hyuml.getState().doc.layout.nodes.Order.w)))}`);
+    }
+    await shot(page, 'class', '14-font-width-24');
+    return widths.join(' ');
+  });
+  await check('class', '24pt 에서 최소 폭까지 줄여도 잘리지 않음', async () => {
+    await page.evaluate(() => window.__hyuml.getState().resizeNode('Order', { w: 50 }));
+    await page.waitForTimeout(500);
+    const w = await page.evaluate(() => window.__hyuml.getState().doc.layout.nodes.Order.w);
+    const clipped = await page.evaluate(() => [...document.querySelectorAll('.react-flow__node[data-id="Order"] input')].filter((i) => i.scrollWidth > i.clientWidth).map((i) => i.value));
+    assert(w > 360, `최소 폭이 글자보다 좁음 ${w}`);
+    assert(clipped.length === 0, `잘림: ${clipped.join(' | ')}`);
+    return `최소 폭 ${w}`;
+  });
+  await context.close();
+}
+
 const browser = await chromium.launch();
 for (const [kind, sc] of Object.entries(SCENARIOS)) await runKind(browser, kind, sc);
 await runExportClip(browser);
 await runFontOverlap(browser);
 await runInteractions(browser);
+await runFontWidth(browser);
 await browser.close();
 
 const lines = results.map((r) => `${r.ok ? 'PASS' : 'FAIL'}  ${r.kind.padEnd(9)} ${r.name}${r.note ? `  — ${r.note}` : ''}`);
