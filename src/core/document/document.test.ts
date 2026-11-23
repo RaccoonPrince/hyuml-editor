@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { parseClassDiagram } from '../diagrams/class/parser';
 import { migrateNodeRename, styleKeys } from './keys';
-import { placeAddedNodes, reconcileLayout } from './reconcile';
+import { placeAddedNodes, reconcileLayout, separateOverlaps } from './reconcile';
 import { createEmptyLayout, parseLayout } from './schema';
 import { deserialize, serialize } from './serializer';
 
@@ -152,5 +152,29 @@ describe('저장 · 불러오기 왕복', () => {
     // 한 번 더 왕복해도 같다 (안정성)
     const again = deserialize(serialize(loaded.doc));
     expect(again.ok && again.doc.layout).toEqual(layout);
+  });
+});
+
+describe('separateOverlaps (글꼴 확대로 커진 도형)', () => {
+  const box = (x: number, y: number, w = 100, h = 60) => ({ x, y, w, h });
+  it('커진 도형과 겹치는 이웃만 최소 거리로 밀고 나머지 좌표는 그대로', () => {
+    const nodes = { A: box(0, 0, 300, 200), B: box(50, 150), C: box(600, 600) };
+    const out = separateOverlaps(nodes, new Set(['A']));
+    expect(out.A).toEqual(nodes.A);
+    expect(out.C).toEqual(nodes.C);
+    expect(out.B!.y).toBe(220); // 아래로 200 + 20 (오른쪽 370 보다 가깝다)
+    expect(out.B!.x).toBe(50);
+  });
+  it('겹침이 없으면 같은 좌표, 커진 도형이 없는 기존 겹침은 건드리지 않는다', () => {
+    const nodes = { A: box(0, 0), B: box(500, 0) };
+    expect(separateOverlaps(nodes, new Set(['A']))).toEqual(nodes);
+    const manual = { A: box(0, 0), B: box(10, 10) };
+    expect(separateOverlaps(manual, new Set())).toEqual(manual);
+  });
+  it('밀려난 도형이 또 겹치면 연쇄로 민다', () => {
+    const out = separateOverlaps({ A: box(0, 0, 200, 200), B: box(10, 190), C: box(10, 280) }, new Set(['A']));
+    const [b, c] = [out.B!, out.C!];
+    expect(b.y).toBeGreaterThanOrEqual(220);
+    expect(c.y >= b.y + 60 + 20 || c.x >= b.x + 100 + 20).toBe(true);
   });
 });

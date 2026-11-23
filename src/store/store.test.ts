@@ -328,3 +328,18 @@ describe('핵심 요구 — 코드 편집과 좌표 (명세 FR-05·06)', () => {
     expect(store().doc.layout.nodes.A).toMatchObject({ x: 11, y: 22 });
   });
 });
+
+describe('글꼴 확대 시 겹침 (D2)', () => {
+  it('24pt 로 키워도 도형 상자가 서로 겹치지 않는다', async () => {
+    store().setSource('classDiagram\nclass Order {\n  +int id\n  +String customerName\n  +calculateTotal()\n}\nclass Item {\n  +String name\n}\nclass Lonely\nOrder --> Item');
+    await store().commitNow();
+    store().setFontSize(24);
+    const rects = Object.values(store().doc.layout.nodes);
+    for (let i = 0; i < rects.length; i += 1) {
+      for (let j = i + 1; j < rects.length; j += 1) {
+        const a = rects[i]!, b = rects[j]!;
+        expect(a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h).toBe(false);
+      }
+    }
+  });
+});

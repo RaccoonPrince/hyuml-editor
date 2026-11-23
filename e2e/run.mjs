@@ -318,9 +318,43 @@ async function runExportClip(browser) {
   await context.close();
 }
 
+/** 글꼴 24pt 로 올려도 도형 상자가 겹치지 않는지 (글꼴 변경 직후, 자동 정렬 후) */
+async function runFontOverlap(browser) {
+  const context = await browser.newContext({ viewport: { width: 1500, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(URL);
+  await page.waitForFunction(() => window.__hyuml, null, { timeout: 30000 });
+  await page.locator('.monaco-editor').first().waitFor({ timeout: 30000 });
+  await setCode(page, 'classDiagram\n  class Order {\n    +int id\n    +String customerName\n    +calculateTotal()\n  }\n  class Item {\n    +String name\n    +int price\n  }\n  class Lonely\n  Order --> Item\n');
+  const overlaps = () => page.evaluate(() => {
+    const boxes = [...document.querySelectorAll('.react-flow__node')].map((e) => ({ id: e.dataset.id, r: e.getBoundingClientRect() }));
+    const out = [];
+    for (let i = 0; i < boxes.length; i += 1) for (let j = i + 1; j < boxes.length; j += 1) {
+      const a = boxes[i].r, b = boxes[j].r;
+      if (a.left < b.right && b.left < a.right && a.top < b.bottom && b.top < a.bottom) out.push(`${boxes[i].id}~${boxes[j].id}`);
+    }
+    return out;
+  });
+  await check('class', '글꼴 24pt 변경 직후 상자가 겹치지 않음', async () => {
+    await page.getByLabel('다이어그램 글꼴 크기').selectOption('24');
+    await settle(page);
+    const o = await overlaps();
+    await shot(page, 'class', '12-font24');
+    assert(o.length === 0, `겹침: ${o.join(', ')}`);
+  });
+  await check('class', '글꼴 24pt 자동 정렬 후 상자가 겹치지 않음', async () => {
+    await page.getByRole('button', { name: /자동 정렬/ }).click();
+    await page.waitForTimeout(1500);
+    const o = await overlaps();
+    assert(o.length === 0, `겹침: ${o.join(', ')}`);
+  });
+  await context.close();
+}
+
 const browser = await chromium.launch();
 for (const [kind, sc] of Object.entries(SCENARIOS)) await runKind(browser, kind, sc);
 await runExportClip(browser);
+await runFontOverlap(browser);
 await browser.close();
 
 const lines = results.map((r) => `${r.ok ? 'PASS' : 'FAIL'}  ${r.kind.padEnd(9)} ${r.name}${r.note ? `  — ${r.note}` : ''}`);
