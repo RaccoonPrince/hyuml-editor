@@ -56,7 +56,13 @@ export function toFlowElements(input: FlowInput): { nodes: AppNode[]; edges: Uml
 function toGraphElements(input: FlowInput & { model: GraphDiagramModel }): { nodes: AppNode[]; edges: UmlEdge[] } {
   const { model, layout, theme, selection, dragIds } = input;
   const minSizes = measureShapes(model, layout);
-  const shapeDeps = (nodeLayout: NodeLayout, selected: boolean) => [nodeLayout, selected, layout.canvas, layout.textStyles, theme];
+  // 도형은 자기 글자 스타일(`node:<id>/…`)만 읽는다. 다른 요소(간선 라벨 등)의 스타일이 바뀌어도 도형 객체를 새로 만들지 않아야
+  // React Flow 가 도형을 다시 채택하며 간선을 언마운트하지 않는다 (간선 서식 툴바가 +/- 에 사라지던 문제)
+  const ownStyleSignature = (id: NodeId) => {
+    const prefix = `node:${id}/`;
+    return JSON.stringify(Object.entries(layout.textStyles).filter(([key]) => key.startsWith(prefix)));
+  };
+  const shapeDeps = (id: NodeId, nodeLayout: NodeLayout, selected: boolean) => [nodeLayout, selected, layout.canvas, ownStyleSignature(id), theme];
 
   const shapes: AppNode[] = [];
   const rects: Record<NodeId, Rect> = {};
@@ -76,14 +82,14 @@ function toGraphElements(input: FlowInput & { model: GraphDiagramModel }): { nod
     };
     if (model.kind === 'class') {
       const classNode = shape as ClassNodeModel;
-      shapes.push(cached<UmlNode>(classNode, shapeDeps(nodeLayout, selected), () => ({
+      shapes.push(cached<UmlNode>(classNode, shapeDeps(shape.id, nodeLayout, selected), () => ({
         ...common,
         type: 'umlClass',
         data: { model: classNode, layout: nodeLayout, canvas: layout.canvas, textStyles: layout.textStyles, theme, minSize: { w: min.w, h: min.h } },
       })));
     } else {
       const usecaseNode = shape as UsecaseNodeModel;
-      shapes.push(cached<UsecaseFlowNode>(usecaseNode, shapeDeps(nodeLayout, selected), () => ({
+      shapes.push(cached<UsecaseFlowNode>(usecaseNode, shapeDeps(shape.id, nodeLayout, selected), () => ({
         ...common,
         type: 'usecase',
         data: { node: usecaseNode, layout: nodeLayout, canvas: layout.canvas, textStyles: layout.textStyles, theme, minSize: { w: Math.min(min.w, 90), h: min.h } },
