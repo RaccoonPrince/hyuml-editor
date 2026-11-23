@@ -23,6 +23,9 @@ export function textWidth(text: string, fontPx: number, bold = false): number {
   return ctx.measureText(text).width;
 }
 
+/** 기본 글꼴 크기(pt) — 자동 폭 상한 TYPO.maxAutoWidth 의 기준 */
+const BASE_FONT_PT = 10;
+
 export const lineHeightPx = (fontPx: number) => Math.ceil(fontPx * TYPO.lineHeight);
 
 /** 저장값은 pt(명세 FR-08: 8~24pt), 화면은 CSS px (1pt = 96/72 px) */
@@ -49,6 +52,8 @@ export const memberFontPx = (nodeId: string, memberKey: string, ctx: MeasureCont
 export function measureClassNode(node: ClassNodeModel, ctx: MeasureContext): { w: number; h: number } {
   const titlePx = titleFontPx(node.id, ctx);
   let maxWidth = textWidth(node.label, titlePx, true) + TYPO.titlePadX * 2;
+  // 자동 폭 상한은 기본 글꼴(10pt) 기준이라, 글꼴이 커진 만큼 늘려야 긴 줄이 잘리지 않는다
+  let fontScale = Math.max(1, titleFontPt(node.id, ctx) / (BASE_FONT_PT + TYPO.titleDeltaPt));
   let height = TYPO.border * 2;
 
   const stereotypePx = Math.max(8, titlePx - 3);
@@ -68,12 +73,13 @@ export function measureClassNode(node: ClassNodeModel, ctx: MeasureContext): { w
     members.forEach((member, index) => {
       const px = memberFontPx(node.id, member.key, ctx);
       height += lineHeightPx(px) + (index > 0 ? TYPO.memberGap : 0);
+      fontScale = Math.max(fontScale, memberFontPt(node.id, member.key, ctx) / BASE_FONT_PT);
       maxWidth = Math.max(maxWidth, textWidth(member.display, px) + TYPO.compartmentPadX * 2 + 4);
     });
   }
 
   return {
-    w: Math.ceil(Math.min(TYPO.maxAutoWidth, Math.max(TYPO.minWidth, maxWidth + TYPO.border * 2))),
+    w: Math.ceil(Math.min(TYPO.maxAutoWidth * fontScale, Math.max(TYPO.minWidth, maxWidth + TYPO.border * 2))),
     h: Math.ceil(height),
   };
 }

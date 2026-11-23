@@ -4,7 +4,9 @@ import { toLayoutGraph } from '../diagrams/registry';
 import type { Rect } from '../types';
 import { layoutWithDagre } from './dagreEngine';
 import { placeLabels } from './labels';
+import { measureClassNode, ptToPx, textWidth } from './measure';
 import { computeRoutes } from './routing';
+import { TYPO } from '../theme';
 
 const model = (body: string) => parseClassDiagram(`classDiagram\n${body}`).model!;
 const box = (x: number, y: number, w = 160, h = 80): Rect => ({ x, y, w, h });
@@ -69,5 +71,25 @@ describe('layout graph', () => {
       const positions = layoutWithDagre(toLayoutGraph(m), { Animal: { w: 160, h: 80 }, Dog: { w: 160, h: 80 } });
       expect(positions.Animal!.y).toBeLessThan(positions.Dog!.y);
     }
+  });
+});
+
+describe('클래스 상자 자동 폭 — 글꼴 8~24pt (N-01)', () => {
+  const orderModel = parseClassDiagram('classDiagram\nclass Order {\n  +id: string\n  +total: number\n  +pay(amount: number) bool\n}').model!;
+  const order = orderModel.nodes.find((n) => n.id === 'Order')!;
+  const longest = '+pay(amount: number) bool';
+
+  it.each([8, 10, 12, 14, 16, 18, 20, 22, 24])('%ipt: 가장 긴 줄이 폭 안에 들어간다', (pt) => {
+    const ctx = { fontSizePt: pt, hideEmpty: true, textStyles: {} };
+    const { w } = measureClassNode(order, ctx);
+    const need = textWidth(longest, ptToPx(pt)) + TYPO.compartmentPadX * 2;
+    expect(w).toBeGreaterThanOrEqual(need);
+  });
+
+  it('글꼴이 커지면 폭도 커진다 (24pt 가 상한 360 에 막히지 않는다)', () => {
+    const w10 = measureClassNode(order, { fontSizePt: 10, hideEmpty: true, textStyles: {} }).w;
+    const w24 = measureClassNode(order, { fontSizePt: 24, hideEmpty: true, textStyles: {} }).w;
+    expect(w24).toBeGreaterThan(360);
+    expect(w24).toBeGreaterThan(w10 * 1.8);
   });
 });
