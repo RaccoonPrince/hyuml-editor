@@ -1,14 +1,7 @@
 import type { CSSProperties, MouseEvent } from 'react';
 import { LIMITS } from '../../core/document/schema';
+import { colorsOn, COLORS } from './formatPalette';
 import { useDiagramStore } from '../../store/useDiagramStore';
-
-const COLORS = [
-  { name: '검정', value: '#000000' },
-  { name: 'DKU 블루', value: '#005eb8' },
-  { name: '빨강', value: '#d32f2f' },
-  { name: '초록', value: '#2e7d32' },
-  { name: '주황', value: '#ef6c00' },
-];
 
 /** 도형 배경색 팔레트 (null = 테마 기본색) */
 const FILLS = [
@@ -29,6 +22,8 @@ interface FormatToolbarProps {
   /** 현재 실제로 렌더되고 있는 글꼴 크기(pt) — 기본값을 추측하지 않으므로 첫 클릭에 크기가 튀지 않는다 */
   fontSize: number;
   color?: string;
+  /** 제목처럼 색 있는 배경 위의 글자일 때 그 배경색 — 대비가 낮은 색을 빼고 '기본색으로' 버튼을 보인다 */
+  textOn?: string;
   strokeWidth?: number;
   stroke?: string;
   /** 도형 배경색을 바꿀 수 있는 대상이면 지정 */
@@ -39,7 +34,7 @@ interface FormatToolbarProps {
 
 const keep = (event: MouseEvent) => event.preventDefault(); // 입력 포커스 유지
 
-export function FormatToolbar({ target, fontSize, color, strokeWidth, stroke, fill, onUngroup }: FormatToolbarProps) {
+export function FormatToolbar({ target, fontSize, color, textOn, strokeWidth, stroke, fill, onUngroup }: FormatToolbarProps) {
   const updateTextStyle = useDiagramStore((s) => s.updateTextStyle);
   const updateEdgeStyle = useDiagramStore((s) => s.updateEdgeStyle);
   const isEdge = target.kind === 'edge';
@@ -62,7 +57,7 @@ export function FormatToolbar({ target, fontSize, color, strokeWidth, stroke, fi
           {width}px
         </button>
       ))}
-      {COLORS.map((swatch) => {
+      {(isEdge ? COLORS : colorsOn(textOn)).map((swatch) => {
         const active = (isEdge ? stroke : color) === swatch.value;
         return (
           <button key={swatch.value} type="button" title={swatch.name} aria-label={`${isEdge ? '선' : '글자'} 색 ${swatch.name}`}
@@ -79,6 +74,12 @@ export function FormatToolbar({ target, fontSize, color, strokeWidth, stroke, fi
           />
         );
       })}
+      {textOn && !isEdge && (
+        <button type="button" title="글자색 기본값(흰색)으로" aria-label="글자색 기본값으로" style={{ ...buttonStyle, width: 24, fontSize: 10 }}
+          onMouseDown={(event) => { keep(event); updateTextStyle(target.styleKey, { color: null }); }}>
+          ↺
+        </button>
+      )}
       {fill && (
         <>
           <span style={{ width: 1, alignSelf: 'stretch', background: 'rgba(255,255,255,0.35)', margin: '0 2px' }} />

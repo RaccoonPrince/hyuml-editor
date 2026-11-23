@@ -222,9 +222,10 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
 
     updateTextStyle: (key, style) => {
       const fontSize = normalizeFontSize(style.fontSize);
-      const color = normalizeColor(style.color);
+      const clearColor = style.color === null;
+      const color = clearColor ? undefined : normalizeColor(style.color);
       const fill = style.fill === null ? null : normalizeColor(style.fill);
-      if (!key || (fontSize === undefined && color === undefined && fill === undefined)) return;
+      if (!key || (fontSize === undefined && color === undefined && !clearColor && fill === undefined)) return;
       pushHistory(`style:${key}`);
       set((s) => {
         const next = {
@@ -235,6 +236,7 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
           isCustomized: true,
         };
         if (fill === null) delete next.fill;
+        if (clearColor) delete next.color;
         s.doc.layout.textStyles[key] = next;
       });
       if (fontSize !== undefined) get().refitNodes();

@@ -343,3 +343,14 @@ describe('글꼴 확대 시 겹침 (D2)', () => {
     }
   });
 });
+
+describe('제목 색 기본값 복원 (D5)', () => {
+  it('color: null 이면 지정한 글자색만 지우고 다른 스타일은 유지한다', () => {
+    const key = styleKeys.title('A');
+    store().updateTextStyle(key, { fontSize: 14, color: '#d32f2f' });
+    expect(store().doc.layout.textStyles[key]?.color).toBe('#d32f2f');
+    store().updateTextStyle(key, { color: null });
+    expect(store().doc.layout.textStyles[key]?.color).toBeUndefined();
+    expect(store().doc.layout.textStyles[key]?.fontSize).toBe(14);
+  });
+});

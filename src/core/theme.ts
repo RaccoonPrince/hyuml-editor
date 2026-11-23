@@ -139,6 +139,23 @@ export const themeOf = (isDark: boolean): ThemeColors => (isDark ? THEMES.dark :
  * 사용자가 지정한 배경색 위에서 읽기 쉬운 글자색.
  * 글자색을 따로 지정하지 않았을 때만 쓴다 (다크 모드 + 밝은 배경 → 밝은 글자가 묻히는 문제 방지).
  */
+const luminanceOf = (hex: string): number | undefined => {
+  const m = hex.trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i)?.[1];
+  if (!m) return undefined;
+  const full = m.length === 3 ? [...m].map((c) => c + c).join('') : m;
+  const [r, g, b] = [0, 2, 4].map((i) => parseInt(full.slice(i, i + 2), 16) / 255);
+  const lin = (c: number) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  return 0.2126 * lin(r!) + 0.7152 * lin(g!) + 0.0722 * lin(b!);
+};
+
+/** WCAG 대비비 (1~21). 색을 읽을 수 없으면 undefined */
+export function contrastRatio(a: string, b: string): number | undefined {
+  const la = luminanceOf(a);
+  const lb = luminanceOf(b);
+  if (la === undefined || lb === undefined) return undefined;
+  return (Math.max(la, lb) + 0.05) / (Math.min(la, lb) + 0.05);
+}
+
 export function contrastTextOn(fill: string | undefined): string | undefined {
   const hex = fill?.trim().match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i)?.[1];
   if (!hex) return undefined;

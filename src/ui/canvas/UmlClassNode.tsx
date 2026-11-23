@@ -120,6 +120,7 @@ function UmlClassNodeImpl({ id, data, selected }: NodeProps<UmlNode>) {
               target={{ kind: 'text', styleKey: titleKey }}
               fontSize={titleFontPt(id, ctx)}
               color={titleColor}
+              textOn={theme.headerBg}
               fill={{ value: layout.fill, onChange: (color) => updateNodeFill(id, color) }}
             />
           )}
