@@ -354,3 +354,16 @@ describe('제목 색 기본값 복원 (D5)', () => {
     expect(store().doc.layout.textStyles[key]?.fontSize).toBe(14);
   });
 });
+
+describe('상자 최소 폭 (D6)', () => {
+  it('클래스 상자는 글자가 잘리지 않는 폭 아래로 줄어들지 않고, 더 넓히는 것은 된다', async () => {
+    store().setSource('classDiagram\nclass Order {\n  +String customerNameVeryLong\n}\nOrder --> B');
+    await store().commitNow();
+    const required = store().doc.layout.nodes.Order!.w; // 자동 크기 = 내용에 맞는 폭
+    store().resizeNode('Order', { w: 50 });
+    expect(store().doc.layout.nodes.Order!.w).toBe(required);
+    expect(store().doc.layout.nodes.Order!.autoSize).toBe(false);
+    store().resizeNode('Order', { w: required + 120 });
+    expect(store().doc.layout.nodes.Order!.w).toBe(required + 120);
+  });
+});
