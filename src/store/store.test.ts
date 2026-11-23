@@ -328,3 +328,42 @@ describe('핵심 요구 — 코드 편집과 좌표 (명세 FR-05·06)', () => {
     expect(store().doc.layout.nodes.A).toMatchObject({ x: 11, y: 22 });
   });
 });
+
+describe('글꼴 확대 시 겹침 (D2)', () => {
+  it('24pt 로 키워도 도형 상자가 서로 겹치지 않는다', async () => {
+    store().setSource('classDiagram\nclass Order {\n  +int id\n  +String customerName\n  +calculateTotal()\n}\nclass Item {\n  +String name\n}\nclass Lonely\nOrder --> Item');
+    await store().commitNow();
+    store().setFontSize(24);
+    const rects = Object.values(store().doc.layout.nodes);
+    for (let i = 0; i < rects.length; i += 1) {
+      for (let j = i + 1; j < rects.length; j += 1) {
+        const a = rects[i]!, b = rects[j]!;
+        expect(a.x < b.x + b.w && b.x < a.x + a.w && a.y < b.y + b.h && b.y < a.y + a.h).toBe(false);
+      }
+    }
+  });
+});
+
+describe('제목 색 기본값 복원 (D5)', () => {
+  it('color: null 이면 지정한 글자색만 지우고 다른 스타일은 유지한다', () => {
+    const key = styleKeys.title('A');
+    store().updateTextStyle(key, { fontSize: 14, color: '#d32f2f' });
+    expect(store().doc.layout.textStyles[key]?.color).toBe('#d32f2f');
+    store().updateTextStyle(key, { color: null });
+    expect(store().doc.layout.textStyles[key]?.color).toBeUndefined();
+    expect(store().doc.layout.textStyles[key]?.fontSize).toBe(14);
+  });
+});
+
+describe('상자 최소 폭 (D6)', () => {
+  it('클래스 상자는 글자가 잘리지 않는 폭 아래로 줄어들지 않고, 더 넓히는 것은 된다', async () => {
+    store().setSource('classDiagram\nclass Order {\n  +String customerNameVeryLong\n}\nOrder --> B');
+    await store().commitNow();
+    const required = store().doc.layout.nodes.Order!.w; // 자동 크기 = 내용에 맞는 폭
+    store().resizeNode('Order', { w: 50 });
+    expect(store().doc.layout.nodes.Order!.w).toBe(required);
+    expect(store().doc.layout.nodes.Order!.autoSize).toBe(false);
+    store().resizeNode('Order', { w: required + 120 });
+    expect(store().doc.layout.nodes.Order!.w).toBe(required + 120);
+  });
+});

@@ -6,7 +6,7 @@ import type { SequenceModel } from '../core/diagrams/sequence/model';
 import { reconcileSequence } from '../core/diagrams/sequence/reconcile';
 import { migrateNodeRename } from '../core/document/keys';
 import type { ReconcileResult } from '../core/document/reconcile';
-import { fitSize, placeAddedNodes, reconcileLayout } from '../core/document/reconcile';
+import { fitSize, placeAddedNodes, reconcileLayout, separateOverlaps } from '../core/document/reconcile';
 import type { LayoutState, NodeLayout } from '../core/document/schema';
 import { getLayoutEngine } from '../core/layout/engine';
 import type { NodeSizes } from '../core/layout/engine';
@@ -172,7 +172,12 @@ export const createDerivedSlice: SliceCreator<DerivedSlice> = (set, get) => {
         const fitted = fitSize(current, required);
         if (fitted !== current) next[id] = fitted;
       }
-      if (Object.keys(next).length > 0) set((s) => { Object.assign(s.doc.layout.nodes, next); });
+      if (Object.keys(next).length === 0) return;
+      // 도형이 커져서 이웃을 덮으면(글꼴 확대 등) 겹친 이웃만 최소 거리로 민다. 그 외 좌표는 그대로 (시퀀스는 배치가 자동이라 제외)
+      const grown = new Set(Object.keys(next).filter((id) => next[id]!.w > doc.layout.nodes[id]!.w || next[id]!.h > doc.layout.nodes[id]!.h));
+      const merged = { ...doc.layout.nodes, ...next };
+      const separated = model.kind !== 'sequence' && grown.size > 0 ? separateOverlaps(merged, grown) : merged;
+      set((s) => { s.doc.layout.nodes = separated; });
     },
   };
 };

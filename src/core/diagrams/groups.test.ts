@@ -42,7 +42,7 @@ describe('그룹 생성 → 코드 반영 → 다시 파싱 (명세 FR-14·15)',
 
   it('sequence: 라벨 첫 단어가 색 이름이면 transparent 를 붙여 라벨로 읽히게 한다', () => {
     const source = 'sequenceDiagram\nA->>B: hi';
-    const grouped = apply(source, (m) => createGroup(m, source, ['A'], 'Red team'));
+    const grouped = apply(source, (m) => createGroup(m, source, ['A', 'B'], 'Red team'));
     expect(parse(grouped).groups[0]).toMatchObject({ label: 'Red team' });
   });
 
@@ -98,10 +98,22 @@ describe('들여쓰기 (생성·해제)', () => {
   });
 
   it('usecase: systemBoundary 도 같은 규칙', () => {
-    const source = 'usecase-beta\n  actor U\n  Login\n  U --> Login\n';
-    const grouped = apply(source, (m) => createGroup(m, source, ['Login'], 'Shop'));
-    expect(grouped).toContain('  systemBoundary Shop\n    Login\n  end\n');
+    const source = 'usecase-beta\n  actor U\n  Login\n  Pay\n  U --> Login\n';
+    const grouped = apply(source, (m) => createGroup(m, source, ['Login', 'Pay'], 'Shop'));
+    expect(grouped).toContain('  systemBoundary Shop\n    Login\n    Pay\n  end\n');
     const ungrouped = apply(grouped, (m) => removeGroup(m, 'Shop', grouped));
-    expect(ungrouped).toBe(`${source}  Login\n`);
+    expect(ungrouped).toBe(`${source}  Login\n  Pay\n`);
+  });
+});
+
+describe('그룹은 도형 2개 이상부터 (D4)', () => {
+  const source = 'classDiagram\nA --> B\nB --> C';
+  it('멤버 0개·1개는 거절하고 2개는 성공한다', () => {
+    expect(createGroup(parse(source), source, [], 'G').ok).toBe(false);
+    const one = createGroup(parse(source), source, ['A'], 'G');
+    expect(one.ok).toBe(false);
+    expect(!one.ok && one.reason).toContain('2개 이상');
+    expect(createGroup(parse(source), source, ['A', 'A'], 'G').ok).toBe(false); // 중복은 1개로 센다
+    expect(createGroup(parse(source), source, ['A', 'B'], 'G').ok).toBe(true);
   });
 });

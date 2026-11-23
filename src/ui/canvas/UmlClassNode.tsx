@@ -106,6 +106,7 @@ function UmlClassNodeImpl({ id, data, selected }: NodeProps<UmlNode>) {
         <div style={{ position: 'relative', height: lineHeightPx(titlePx) }}>
           <EditableText
             ariaLabel={`클래스 이름 ${model.label}`}
+            draggable
             value={model.label}
             onCommit={(next) => renameShape(id, next)}
             onFocusChange={focusHandler(titleKey)}
@@ -120,6 +121,7 @@ function UmlClassNodeImpl({ id, data, selected }: NodeProps<UmlNode>) {
               target={{ kind: 'text', styleKey: titleKey }}
               fontSize={titleFontPt(id, ctx)}
               color={titleColor}
+              textOn={theme.headerBg}
               fill={{ value: layout.fill, onChange: (color) => updateNodeFill(id, color) }}
             />
           )}

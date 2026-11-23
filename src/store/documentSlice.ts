@@ -202,16 +202,21 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
       }
     }),
 
-    resizeNode: (id, rect) => set((s) => {
+    resizeNode: (id, rect) => {
+      // 클래스 상자는 글자가 잘리지 않는 폭(자동 크기 폭) 아래로 줄일 수 없다
+      const { model, doc } = get();
+      const minWidth = model?.kind === 'class' ? measurerOf(model, doc.layout)({ id }).w : 0;
+      set((s) => {
       const node = s.doc.layout.nodes[id];
       if (!node) return;
       const clampSize = (value: number) => Math.min(LIMITS.nodeSize.max, Math.max(LIMITS.nodeSize.min, value));
       if (rect.x !== undefined && Number.isFinite(rect.x)) node.x = rect.x;
       if (rect.y !== undefined && Number.isFinite(rect.y) && s.model?.kind !== 'sequence') node.y = rect.y;
-      if (rect.w !== undefined && Number.isFinite(rect.w)) node.w = clampSize(rect.w);
+      if (rect.w !== undefined && Number.isFinite(rect.w)) node.w = Math.max(clampSize(rect.w), minWidth);
       if (rect.h !== undefined && Number.isFinite(rect.h)) node.h = clampSize(rect.h);
       node.autoSize = false;
-    }),
+      });
+    },
 
     resetNodeSize: (id) => {
       if (!get().doc.layout.nodes[id]) return;
@@ -222,9 +227,10 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
 
     updateTextStyle: (key, style) => {
       const fontSize = normalizeFontSize(style.fontSize);
-      const color = normalizeColor(style.color);
+      const clearColor = style.color === null;
+      const color = clearColor ? undefined : normalizeColor(style.color);
       const fill = style.fill === null ? null : normalizeColor(style.fill);
-      if (!key || (fontSize === undefined && color === undefined && fill === undefined)) return;
+      if (!key || (fontSize === undefined && color === undefined && !clearColor && fill === undefined)) return;
       pushHistory(`style:${key}`);
       set((s) => {
         const next = {
@@ -235,6 +241,7 @@ export const createDocumentSlice: SliceCreator<DocumentSlice> = (set, get) => {
           isCustomized: true,
         };
         if (fill === null) delete next.fill;
+        if (clearColor) delete next.color;
         s.doc.layout.textStyles[key] = next;
       });
       if (fontSize !== undefined) get().refitNodes();

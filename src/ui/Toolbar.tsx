@@ -7,13 +7,15 @@ import type { LayoutEngineName } from '../core/document/schema';
 import { LIMITS } from '../core/document/schema';
 import { GROUP_NODE_PREFIX } from '../view/flowTypes';
 import { themeOf } from '../core/theme';
+import { exportBounds } from '../export/bounds';
 import { exportDiagram } from '../export/exporter';
+import type { Point } from '../core/types';
 import type { ExportFormat } from '../export/exporter';
 import { useDiagramStore } from '../store/useDiagramStore';
 
 export function Toolbar() {
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const { getNodes, getNodesBounds } = useReactFlow();
+  const { getNodes, getEdges, getNodesBounds } = useReactFlow();
   const s = useDiagramStore(useShallow((state) => ({
     isDarkMode: state.isDarkMode,
     hideEmpty: state.doc.layout.canvas.hideEmptyCompartments,
@@ -43,7 +45,10 @@ export function Toolbar() {
       const state = actions();
       await exportDiagram(format, {
         doc: state.doc,
-        bounds: getNodes().length > 0 ? getNodesBounds(getNodes()) : null,
+        // 도형 경계 + 연결선 경로(꺾임점 포함) — 바깥으로 꺾인 선이 잘리지 않게
+        bounds: getNodes().length > 0
+          ? exportBounds(getNodesBounds(getNodes()), getEdges().map((edge) => (edge.data as { points?: Point[] } | undefined)?.points ?? []))
+          : null,
         viewport: document.querySelector<HTMLElement>('#canvas-root .react-flow__viewport'),
         background: themeOf(state.isDarkMode).canvasBg,
         dpi: 300,
@@ -92,8 +97,8 @@ export function Toolbar() {
         </button>
       )}
       {groupName === null ? (
-        <button type="button" style={secondary} disabled={s.selectedShapes === 0}
-          title={s.selectedShapes === 0 ? '캔버스에서 Ctrl + 드래그로 도형을 여러 개 선택한 뒤 누르세요' : `선택한 도형 ${s.selectedShapes}개를 그룹으로 묶기`}
+        <button type="button" style={secondary} disabled={s.selectedShapes < 2}
+          title={s.selectedShapes < 2 ? '캔버스에서 Ctrl + 드래그로 도형을 2개 이상 선택한 뒤 누르세요' : `선택한 도형 ${s.selectedShapes}개를 그룹으로 묶기`}
           onClick={() => setGroupName(s.kind === 'class' ? 'Group' : '그룹')}>
           그룹{s.selectedShapes > 0 ? ` (${s.selectedShapes})` : ''}
         </button>

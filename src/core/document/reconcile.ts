@@ -152,3 +152,33 @@ export function placeAddedNodes(
   }
   return result;
 }
+
+/**
+ * 글꼴 변경 등으로 도형이 커져서 이웃과 겹칠 때만, 겹친 이웃을 오른쪽 또는 아래로 최소 거리만 민다.
+ * `grown` 에 없는 도형끼리의 겹침(사용자가 직접 둔 배치)은 건드리지 않고, 커진 도형 자신은 제자리에 둔다.
+ * 밀린 도형은 다시 다른 도형과 겹칠 수 있으므로 밀린 쪽도 대상에 넣어 반복한다(최대 100회).
+ */
+export function separateOverlaps(nodes: Record<NodeId, NodeLayout>, grown: ReadonlySet<NodeId>, gap = 20): Record<NodeId, NodeLayout> {
+  const result: Record<NodeId, NodeLayout> = { ...nodes };
+  const anchors = new Set(grown); // 이 집합의 도형과 겹치는 도형이 밀린다
+  const ids = Object.keys(result).sort((p, q) => result[p]!.y - result[q]!.y || result[p]!.x - result[q]!.x);
+  for (let pass = 0; pass < 100; pass += 1) {
+    let moved = false;
+    for (const anchorId of ids) {
+      if (!anchors.has(anchorId)) continue;
+      const a = result[anchorId]!;
+      for (const otherId of ids) {
+        if (otherId === anchorId) continue;
+        const b = result[otherId]!;
+        if (!overlaps(a, b, gap)) continue;
+        const right = a.x + a.w + gap - b.x;
+        const down = a.y + a.h + gap - b.y;
+        result[otherId] = right <= down ? { ...b, x: b.x + right } : { ...b, y: b.y + down };
+        anchors.add(otherId);
+        moved = true;
+      }
+    }
+    if (!moved) break;
+  }
+  return result;
+}

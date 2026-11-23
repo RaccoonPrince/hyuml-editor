@@ -79,7 +79,7 @@ function toGraphElements(input: FlowInput & { model: GraphDiagramModel }): { nod
       shapes.push(cached<UmlNode>(classNode, shapeDeps(nodeLayout, selected), () => ({
         ...common,
         type: 'umlClass',
-        data: { model: classNode, layout: nodeLayout, canvas: layout.canvas, textStyles: layout.textStyles, theme, minSize: { w: Math.min(min.w, TYPO.minWidth), h: min.h } },
+        data: { model: classNode, layout: nodeLayout, canvas: layout.canvas, textStyles: layout.textStyles, theme, minSize: { w: min.w, h: min.h } },
       })));
     } else {
       const usecaseNode = shape as UsecaseNodeModel;

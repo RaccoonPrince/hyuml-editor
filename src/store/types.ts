@@ -37,7 +37,7 @@ export interface DocumentSlice {
   resizeNode: (id: NodeId, rect: Partial<Pick<NodeLayout, 'x' | 'y' | 'w' | 'h'>>) => void;
   resetNodeSize: (id: NodeId) => void;
   /** fill: null 이면 기본색으로 되돌림 */
-  updateTextStyle: (key: string, style: Pick<TextStyle, 'fontSize' | 'color'> & { fill?: string | null }) => void;
+  updateTextStyle: (key: string, style: Pick<TextStyle, 'fontSize'> & { color?: string | null; fill?: string | null }) => void;
   /** 도형(클래스 노드·참여자) 배경색. null 이면 기본색 */
   updateNodeFill: (id: NodeId, fill: string | null) => void;
   /** 연결선 꺾임점 (명세 FR-12). null 이면 자동 경로로 되돌림 */
