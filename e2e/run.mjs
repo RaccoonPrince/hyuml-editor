@@ -351,10 +351,70 @@ async function runFontOverlap(browser) {
   await context.close();
 }
 
+/** D4(그룹 2개 이상)·D5(제목 색 팔레트)·D7(제목 위 드래그) */
+async function runInteractions(browser) {
+  const context = await browser.newContext({ viewport: { width: 1500, height: 900 } });
+  const page = await context.newPage();
+  await page.goto(URL);
+  await page.waitForFunction(() => window.__hyuml, null, { timeout: 30000 });
+  await page.locator('.monaco-editor').first().waitFor({ timeout: 30000 });
+  await setCode(page, 'classDiagram\n  class Alpha\n  class Beta\n  Alpha --> Beta\n');
+  const nodeOf = (id) => page.evaluate((n) => JSON.stringify(window.__hyuml.getState().doc.layout.nodes[n]), id);
+
+  await check('class', '제목 위에서 드래그하면 상자가 이동하고 편집 상태가 되지 않음', async () => {
+    const before = JSON.parse(await nodeOf('Alpha'));
+    const input = page.getByLabel('클래스 이름 Alpha', { exact: true });
+    const box = await input.boundingBox();
+    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box.x + 90, box.y + 70, { steps: 8 });
+    await page.mouse.up();
+    await page.waitForTimeout(300);
+    const after = JSON.parse(await nodeOf('Alpha'));
+    assert(after.x !== before.x || after.y !== before.y, '상자가 움직이지 않음');
+    const focused = await page.evaluate(() => document.activeElement?.getAttribute('aria-label'));
+    assert(focused !== '클래스 이름 Alpha', '드래그 후 제목이 편집 상태');
+    const src = await page.evaluate(() => window.__hyuml.getState().doc.source);
+    assert(src.includes('class Alpha'), '소스가 바뀜');
+  });
+
+  await check('class', '제목 클릭은 편집, 제목 색 팔레트에서 DKU 블루 제외 + 기본색 버튼', async () => {
+    const input = page.getByLabel('클래스 이름 Alpha', { exact: true });
+    await input.click();
+    assert((await page.evaluate(() => document.activeElement?.getAttribute('aria-label'))) === '클래스 이름 Alpha', '클릭해도 편집이 시작되지 않음');
+    assert((await page.getByLabel('글자 색 DKU 블루').count()) === 0, '제목 팔레트에 DKU 블루가 있음');
+    assert((await page.getByLabel('글자 색 노랑').count()) === 1, '노랑이 없음');
+    await page.getByLabel('글자 색 노랑').dispatchEvent('mousedown');
+    await page.waitForTimeout(200);
+    const key = 'node:Alpha/title';
+    const red = await page.evaluate((k) => window.__hyuml.getState().doc.layout.textStyles[k]?.color, key);
+    assert(red === '#ffd54f', `색 미적용 ${red}`);
+    await page.getByLabel('글자색 기본값으로').dispatchEvent('mousedown');
+    await page.waitForTimeout(200);
+    const reset = await page.evaluate((k) => window.__hyuml.getState().doc.layout.textStyles[k]?.color, key);
+    assert(reset === undefined, `기본색 복원 실패 ${reset}`);
+    await shot(page, 'class', '13-title-palette');
+    await page.keyboard.press('Escape');
+  });
+
+  await check('class', '그룹 버튼은 도형 1개 선택에서 비활성, 2개부터 활성', async () => {
+    const button = page.getByRole('button', { name: /^그룹/ });
+    await page.evaluate(() => window.__hyuml.getState().setSelection([]));
+    await page.evaluate(() => window.__hyuml.getState().setSelection(['Alpha']));
+    await page.waitForTimeout(200);
+    assert(await button.isDisabled(), '1개 선택인데 활성');
+    await page.evaluate(() => window.__hyuml.getState().setSelection(['Alpha', 'Beta']));
+    await page.waitForTimeout(200);
+    assert(await button.isEnabled(), '2개 선택인데 비활성');
+  });
+  await context.close();
+}
+
 const browser = await chromium.launch();
 for (const [kind, sc] of Object.entries(SCENARIOS)) await runKind(browser, kind, sc);
 await runExportClip(browser);
 await runFontOverlap(browser);
+await runInteractions(browser);
 await browser.close();
 
 const lines = results.map((r) => `${r.ok ? 'PASS' : 'FAIL'}  ${r.kind.padEnd(9)} ${r.name}${r.note ? `  — ${r.note}` : ''}`);
