@@ -338,7 +338,7 @@ src/
 npm run test
 ```
 
-- Vitest, Node 환경에서 `src/**/*.test.ts`를 실행합니다(현재 15개 파일, 145개 테스트).
+- Vitest, Node 환경에서 `src/**/*.test.ts`를 실행합니다(현재 14개 파일, 145개 테스트).
 - 대상: 세 파서와 편집 함수, reconcile(이름 변경 승계·고립 노드 정책), 경로·라벨, 스토어(커밋 순서, Undo, 오류 시 직전 상태 유지, 좌표 불변, 종류 전환), 저장·불러오기 왕복, 그룹 생성·해제 들여쓰기, DPI 기록.
 - `src/view/perf.test.ts`는 클래스 30개·40개의 파싱 → reconcile → toFlowElements 시간을 측정해 출력하고(`[perf]` 로그, 1초 상한 단언), 드래그 프레임 비용도 함께 보여줍니다. 수치를 보려면 `npx vitest run src/view/perf.test.ts --reporter=verbose`.
 
